@@ -14,6 +14,7 @@ Load from:
 
 ```starlark
 load("@rules_monorepo//rules_monorepo_rust:defs.bzl", "rust_binary_oci_image", "transitioned_binary_arm64")
+load("@rules_monorepo//rules_monorepo_rust:cargo_defs.bzl", "cargo_rust_binary", "cargo_rust_library", "cargo_rust_test")
 ```
 
 Symbols:
@@ -23,6 +24,10 @@ Symbols:
 - `transitioned_binary_arm64`
 - `linux_amd64_transition`
 - `linux_arm64_transition`
+- `cargo_rust_library` (Cargo-inferred deps from `@cargo_dep`)
+- `cargo_rust_binary` (Cargo-inferred deps from `@cargo_dep`)
+- `cargo_rust_test` (Cargo-inferred deps from `@cargo_dep`)
+- `cargo_all_crate_deps` / `cargo_proc_macro_deps` helper functions
 
 ## Required MODULE Setup (Rust Cross-Compile)
 
@@ -86,22 +91,51 @@ sysroot(
 
 For `git_override` and `local_path_override` variants, see the root `README.md`.
 
+## Optional MODULE Setup (Cargo-Inferred Deps)
+
+To infer crate deps from `Cargo.toml`/`Cargo.lock`, configure crate_universe and expose it as `@cargo_dep`:
+
+```starlark
+crates = use_extension("@rules_rust//crate_universe:extension.bzl", "crate")
+crates.from_cargo(
+    name = "cargo_dep",
+    cargo_lockfile = "//:Cargo.lock",
+    manifests = [
+        "//path/to/crate:Cargo.toml",
+    ],
+)
+use_repo(crates, "cargo_dep")
+```
+
+`cargo_defs.bzl` currently expects the repository name `cargo_dep`.
+
 ## Example: Rust Binary -> OCI Image
 
 ```starlark
-load("@rules_rust//rust:defs.bzl", "rust_binary")
-load("@rules_monorepo//rules_monorepo_rust:defs.bzl", "rust_binary_oci_image")
+load("@rules_monorepo//rules_monorepo_rust:cargo_defs.bzl", "cargo_rust_binary", "rust_binary_oci_image")
 
-rust_binary(
+cargo_rust_binary(
     name = "market_maker",
     srcs = ["src/main.rs"],
     edition = "2024",
+    # deps are inferred from Cargo.toml via @cargo_dep.
 )
 
 rust_binary_oci_image(
     name = "market_maker",
     binary = ":market_maker",
     repository = "registry.example.com/trading/market-maker",
+)
+```
+
+If `Cargo.toml` path and Bazel package path differ, set `package_name` explicitly:
+
+```starlark
+cargo_rust_binary(
+    name = "market_maker",
+    srcs = ["src/main.rs"],
+    edition = "2024",
+    package_name = "apps/market-maker",
 )
 ```
 

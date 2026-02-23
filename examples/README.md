@@ -18,6 +18,7 @@ archive_override(
 ```
 
 See root `README.md` for `git_override` and `local_path_override` alternatives.
+See `rules_monorepo_rust/README.md` for Cargo-inferred Rust wrappers (`cargo_defs.bzl`) that avoid duplicated crate deps in BUILD files.
 
 ## rust_service
 

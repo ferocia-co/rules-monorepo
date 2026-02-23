@@ -103,6 +103,7 @@ use_repo(oci, "distroless_cc_linux_amd64", "distroless_cc_linux_arm64")
 ```starlark
 load("@rules_monorepo//rules_monorepo:defs.bzl", "binary_oci_image", "k8s_apply", "k8s_oci_deploy")
 load("@rules_monorepo//rules_monorepo_rust:defs.bzl", "rust_binary_oci_image", "transitioned_binary_arm64")
+load("@rules_monorepo//rules_monorepo_rust:cargo_defs.bzl", "cargo_rust_binary", "cargo_rust_library", "cargo_rust_test")
 ```
 
 ## Quick Usage
@@ -146,6 +147,45 @@ rust_binary_oci_image(
 If you use `rules_monorepo_rust` transitions (`linux_amd64` / `linux_arm64`), configure Rust and C/C++ cross-toolchains in your `MODULE.bazel`.
 
 See `rules_monorepo_rust/README.md` for a full copy-paste snippet.
+
+## Cargo-Inferred Rust Dependencies
+
+To avoid duplicating Rust crate deps in both `Cargo.toml` and BUILD targets, use the Cargo-inferred API in `rules_monorepo_rust:cargo_defs.bzl`.
+
+1. Configure crate_universe in `MODULE.bazel` with a repository named `cargo_dep`:
+
+```starlark
+crates = use_extension("@rules_rust//crate_universe:extension.bzl", "crate")
+crates.from_cargo(
+    name = "cargo_dep",
+    cargo_lockfile = "//:Cargo.lock",
+    manifests = [
+        "//path/to/crate:Cargo.toml",
+    ],
+)
+use_repo(crates, "cargo_dep")
+```
+
+2. Use Cargo-inferred wrappers in BUILD files:
+
+```starlark
+load("@rules_monorepo//rules_monorepo_rust:cargo_defs.bzl", "cargo_rust_binary", "rust_binary_oci_image")
+
+cargo_rust_binary(
+    name = "strategy_runner",
+    srcs = ["src/main.rs"],
+    edition = "2024",
+    # no @cargo_dep deps list required here
+)
+
+rust_binary_oci_image(
+    name = "strategy_runner",
+    binary = ":strategy_runner",
+    repository = "registry.example.com/trading/strategy-runner",
+)
+```
+
+By default, wrappers infer deps for `native.package_name()`. If your manifest path differs from package name, pass `package_name = "path/to/crate"`.
 
 ## Examples
 
