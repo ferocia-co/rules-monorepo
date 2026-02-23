@@ -2,7 +2,9 @@ package(default_visibility = ["//visibility:public"])
 
 exports_files([
     "README.md",
+    "cargo_defs.bzl",
     "defs.bzl",
+    "rust/cargo.bzl",
     "rust/defs.bzl",
     "rust/oci.bzl",
     "rust/transitions.bzl",
