@@ -1,8 +1,7 @@
 """Cargo-inferred public API for rules_monorepo_rust.
 
-This API requires crate_universe repositories to be exposed as:
-
-    use_repo(crates, "cargo_dep")
+Load `all_crate_deps` from your crate_universe repository in BUILD files and
+pass it via `all_crate_deps_fn` to cargo_rust_* macros.
 """
 
 load(":rust/cargo.bzl", _cargo_all_crate_deps = "cargo_all_crate_deps", _cargo_proc_macro_deps = "cargo_proc_macro_deps", _cargo_rust_binary = "cargo_rust_binary", _cargo_rust_library = "cargo_rust_library", _cargo_rust_test = "cargo_rust_test")

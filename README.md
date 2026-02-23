@@ -152,7 +152,7 @@ See `rules_monorepo_rust/README.md` for a full copy-paste snippet.
 
 To avoid duplicating Rust crate deps in both `Cargo.toml` and BUILD targets, use the Cargo-inferred API in `rules_monorepo_rust:cargo_defs.bzl`.
 
-1. Configure crate_universe in `MODULE.bazel` with a repository named `cargo_dep`:
+1. Configure crate_universe in `MODULE.bazel`:
 
 ```starlark
 crates = use_extension("@rules_rust//crate_universe:extension.bzl", "crate")
@@ -169,13 +169,14 @@ use_repo(crates, "cargo_dep")
 2. Use Cargo-inferred wrappers in BUILD files:
 
 ```starlark
+load("@cargo_dep//:defs.bzl", "all_crate_deps")
 load("@rules_monorepo//rules_monorepo_rust:cargo_defs.bzl", "cargo_rust_binary", "rust_binary_oci_image")
 
 cargo_rust_binary(
     name = "strategy_runner",
     srcs = ["src/main.rs"],
     edition = "2024",
-    # no @cargo_dep deps list required here
+    all_crate_deps_fn = all_crate_deps,
 )
 
 rust_binary_oci_image(
@@ -186,6 +187,7 @@ rust_binary_oci_image(
 ```
 
 By default, wrappers infer deps for `native.package_name()`. If your manifest path differs from package name, pass `package_name = "path/to/crate"`.
+If you use a crate_universe repo name other than `cargo_dep`, update the `load("@cargo_dep//:defs.bzl", ...)` label accordingly.
 
 ## Examples
 

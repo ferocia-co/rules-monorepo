@@ -24,9 +24,9 @@ Symbols:
 - `transitioned_binary_arm64`
 - `linux_amd64_transition`
 - `linux_arm64_transition`
-- `cargo_rust_library` (Cargo-inferred deps from `@cargo_dep`)
-- `cargo_rust_binary` (Cargo-inferred deps from `@cargo_dep`)
-- `cargo_rust_test` (Cargo-inferred deps from `@cargo_dep`)
+- `cargo_rust_library` (Cargo-inferred deps via `all_crate_deps_fn`)
+- `cargo_rust_binary` (Cargo-inferred deps via `all_crate_deps_fn`)
+- `cargo_rust_test` (Cargo-inferred deps via `all_crate_deps_fn`)
 - `cargo_all_crate_deps` / `cargo_proc_macro_deps` helper functions
 
 ## Required MODULE Setup (Rust Cross-Compile)
@@ -107,18 +107,20 @@ crates.from_cargo(
 use_repo(crates, "cargo_dep")
 ```
 
-`cargo_defs.bzl` currently expects the repository name `cargo_dep`.
+If you use a different repository name, load `all_crate_deps` from that repo label in BUILD files and pass it as `all_crate_deps_fn`.
 
 ## Example: Rust Binary -> OCI Image
 
 ```starlark
+load("@cargo_dep//:defs.bzl", "all_crate_deps")
 load("@rules_monorepo//rules_monorepo_rust:cargo_defs.bzl", "cargo_rust_binary", "rust_binary_oci_image")
 
 cargo_rust_binary(
     name = "market_maker",
     srcs = ["src/main.rs"],
     edition = "2024",
-    # deps are inferred from Cargo.toml via @cargo_dep.
+    all_crate_deps_fn = all_crate_deps,
+    # deps are inferred from Cargo.toml via crate_universe.
 )
 
 rust_binary_oci_image(
@@ -135,6 +137,7 @@ cargo_rust_binary(
     name = "market_maker",
     srcs = ["src/main.rs"],
     edition = "2024",
+    all_crate_deps_fn = all_crate_deps,
     package_name = "apps/market-maker",
 )
 ```
