@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: example-app
+  labels:
+    app.kubernetes.io/name: example-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: example-app
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: example-app
+    spec:
+      containers:
+        - name: app
+          image: registry.example.com/example/app:{{GIT_COMMIT_SHORT}}
+          imagePullPolicy: Always

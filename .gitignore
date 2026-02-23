@@ -1,0 +1,9 @@
+# Bazel
+bazel-*
+MODULE.bazel.lock
+
+# Editor/OS
+.DS_Store
+
+# jj internals
+.jj/

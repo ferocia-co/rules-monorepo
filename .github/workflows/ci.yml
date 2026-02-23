@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bazel-analysis:
+    name: Bazel Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Bazel
+        uses: bazel-contrib/setup-bazel@0.18.0
+
+      - name: Show Bazel Version
+        run: bazelisk version
+
+      - name: Validate Helper Script Syntax
+        run: bash -n rules_monorepo/k8s/k8s_apply_helper.sh
+
+      - name: Query Target Graph
+        run: bazelisk --ignore_all_rc_files query //...
+
+      - name: Analyze Rust Deploy Example
+        run: bazelisk --ignore_all_rc_files build --nobuild //examples/rust_service:app_deploy.apply

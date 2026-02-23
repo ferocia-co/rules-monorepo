@@ -1,0 +1,85 @@
+module(
+    name = "rules_monorepo",
+    version = "0.1.0",
+    compatibility_level = 1,
+)
+
+bazel_dep(name = "aspect_bazel_lib", version = "2.22.5")
+bazel_dep(name = "bazel_skylib", version = "1.8.2")
+bazel_dep(name = "platforms", version = "1.0.0")
+bazel_dep(name = "rules_oci", version = "2.2.7")
+bazel_dep(name = "rules_pkg", version = "1.0.1")
+bazel_dep(name = "rules_rust", version = "0.63.0")
+bazel_dep(name = "rules_shell", version = "0.6.1")
+bazel_dep(name = "toolchains_llvm", version = "1.6.0", dev_dependency = True)
+
+# Development-only toolchain setup for this repository's examples.
+# Marked as dev_dependency so consumers of @rules_monorepo don't inherit this.
+rust = use_extension("@rules_rust//rust:extensions.bzl", "rust", dev_dependency = True)
+rust.toolchain(
+    extra_target_triples = [
+        "aarch64-unknown-linux-gnu",
+        "x86_64-unknown-linux-gnu",
+    ],
+    versions = ["1.91.0"],
+)
+use_repo(rust, "rust_toolchains")
+
+llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm", dev_dependency = True)
+llvm.toolchain(
+    name = "llvm_toolchain",
+    llvm_versions = {"": "latest:>=17.0.0,<20"},
+)
+llvm.sysroot(
+    name = "llvm_toolchain",
+    label = "@org_chromium_sysroot_linux_x64//sysroot",
+    targets = ["linux-x86_64"],
+)
+llvm.sysroot(
+    name = "llvm_toolchain",
+    label = "@org_chromium_sysroot_linux_arm64//sysroot",
+    targets = ["linux-aarch64"],
+)
+use_repo(llvm, "llvm_toolchain", "llvm_toolchain_llvm")
+register_toolchains(
+    "@llvm_toolchain//:cc-toolchain-x86_64-linux",
+    "@llvm_toolchain//:cc-toolchain-aarch64-linux",
+    dev_dependency = True,
+)
+
+sysroot = use_repo_rule("@toolchains_llvm//toolchain:sysroot.bzl", "sysroot")
+sysroot(
+    name = "org_chromium_sysroot_linux_x64",
+    sha256 = "93761371443acf55f429cab6628d5b423bf9a07a3445d2376b4ba52cb35a6d99",
+    urls = ["https://commondatastorage.googleapis.com/chrome-linux-sysroot/toolchain/812a1cdc57400e9e0b3def67d41403b8bb764d2d/debian_sid_amd64_sysroot.tar.xz"],
+    dev_dependency = True,
+)
+sysroot(
+    name = "org_chromium_sysroot_linux_arm64",
+    sha256 = "38b11a17004bf9f5245f1de1c20d45b389b9dab18ce564ad73b44b6655c61850",
+    urls = ["https://commondatastorage.googleapis.com/chrome-linux-sysroot/toolchain/f421bdbada4278feede4bae1ec8be91299e8938b/debian_sid_arm64_sysroot.tar.xz"],
+    dev_dependency = True,
+)
+
+# Required for k8s_* rules when running examples in this repo.
+monorepo_tools = use_extension(
+    "//rules_monorepo:extensions.bzl",
+    "monorepo_tools",
+)
+use_repo(monorepo_tools, "kubectl_bin", "kustomize_bin")
+
+# Default OCI bases used by binary_oci_image / rust_binary_oci_image in examples.
+oci = use_extension("@rules_oci//oci:extensions.bzl", "oci", dev_dependency = True)
+oci.pull(
+    name = "distroless_cc_linux_amd64",
+    image = "gcr.io/distroless/cc-debian12",
+    tag = "latest-amd64",
+    reproducible = False,
+)
+oci.pull(
+    name = "distroless_cc_linux_arm64",
+    image = "gcr.io/distroless/cc-debian12",
+    tag = "latest-arm64",
+    reproducible = False,
+)
+use_repo(oci, "distroless_cc_linux_amd64", "distroless_cc_linux_arm64")

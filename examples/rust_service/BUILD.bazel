@@ -1,0 +1,32 @@
+load("@rules_rust//rust:defs.bzl", "rust_binary")
+load("@rules_monorepo//rules_monorepo:defs.bzl", "k8s_oci_deploy")
+load("@rules_monorepo//rules_monorepo_rust:defs.bzl", "rust_binary_oci_image")
+
+package(default_visibility = ["//visibility:public"])
+
+rust_binary(
+    name = "app",
+    srcs = ["src/main.rs"],
+    edition = "2024",
+)
+
+rust_binary_oci_image(
+    name = "app",
+    binary = ":app",
+    repository = "registry.example.com/example/app",
+    repo_tags = ["example-app:local"],
+)
+
+filegroup(
+    name = "manifests",
+    srcs = ["k8s/deployment.yaml"],
+)
+
+k8s_oci_deploy(
+    name = "app_deploy",
+    namespace = "default",
+    manifests = [":manifests"],
+    images = [{"push": ":app_push"}],
+    rollout_selector = "app.kubernetes.io/name=example-app",
+    rollout_kinds = ["deployment"],
+)

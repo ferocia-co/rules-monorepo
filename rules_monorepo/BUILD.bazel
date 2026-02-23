@@ -1,0 +1,17 @@
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
+package(default_visibility = ["//visibility:public"])
+
+exports_files([
+    "README.md",
+    "defs.bzl",
+    "extensions.bzl",
+    "repositories.bzl",
+    "k8s/defs.bzl",
+    "oci/defs.bzl",
+])
+
+sh_binary(
+    name = "k8s_apply_helper",
+    srcs = ["k8s/k8s_apply_helper.sh"],
+)

@@ -1,0 +1,25 @@
+package(default_visibility = ["//visibility:public"])
+
+exports_files([
+    "README.md",
+    "defs.bzl",
+    "rust/defs.bzl",
+    "rust/oci.bzl",
+    "rust/transitions.bzl",
+])
+
+platform(
+    name = "linux_amd64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+)
+
+platform(
+    name = "linux_arm64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:arm64",
+    ],
+)

@@ -1,0 +1,160 @@
+# rules_monorepo_rust
+
+Rust-specific layer for `rules_monorepo`.
+
+It provides:
+
+- Linux cross-platform transitions (`amd64`, `arm64`)
+- `rust_binary` -> OCI image helper macro
+- integration with `k8s_oci_deploy`
+
+## Public API
+
+Load from:
+
+```starlark
+load("@rules_monorepo//rules_monorepo_rust:defs.bzl", "rust_binary_oci_image", "transitioned_binary_arm64")
+```
+
+Symbols:
+
+- `rust_binary_oci_image` (alias: `monorepo_rust_binary_oci_image`)
+- `transitioned_binary`
+- `transitioned_binary_arm64`
+- `linux_amd64_transition`
+- `linux_arm64_transition`
+
+## Required MODULE Setup (Rust Cross-Compile)
+
+`rules_monorepo_rust` transitions target Linux platforms. Configure direct GitHub source override (no BCR required), Rust toolchains, and Linux cross C/C++ toolchains:
+
+```starlark
+bazel_dep(name = "rules_monorepo", version = "0.1.0")
+bazel_dep(name = "rules_rust", version = "0.63.0")
+bazel_dep(name = "toolchains_llvm", version = "1.6.0")
+
+archive_override(
+    module_name = "rules_monorepo",
+    urls = ["https://github.com/ferocia-co/rules-monorepo/archive/REPLACE_WITH_COMMIT_SHA.tar.gz"],
+    strip_prefix = "rules-monorepo-REPLACE_WITH_COMMIT_SHA",
+    integrity = "sha256-REPLACE_WITH_BASE64_SHA256",
+)
+
+rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
+rust.toolchain(
+    extra_target_triples = [
+        "aarch64-unknown-linux-gnu",
+        "x86_64-unknown-linux-gnu",
+    ],
+    versions = ["1.91.0"],
+)
+use_repo(rust, "rust_toolchains")
+
+llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm")
+llvm.toolchain(
+    name = "llvm_toolchain",
+    llvm_versions = {"": "latest:>=17.0.0,<20"},
+)
+llvm.sysroot(
+    name = "llvm_toolchain",
+    label = "@org_chromium_sysroot_linux_x64//sysroot",
+    targets = ["linux-x86_64"],
+)
+llvm.sysroot(
+    name = "llvm_toolchain",
+    label = "@org_chromium_sysroot_linux_arm64//sysroot",
+    targets = ["linux-aarch64"],
+)
+use_repo(llvm, "llvm_toolchain", "llvm_toolchain_llvm")
+register_toolchains(
+    "@llvm_toolchain//:cc-toolchain-x86_64-linux",
+    "@llvm_toolchain//:cc-toolchain-aarch64-linux",
+)
+
+sysroot = use_repo_rule("@toolchains_llvm//toolchain:sysroot.bzl", "sysroot")
+sysroot(
+    name = "org_chromium_sysroot_linux_x64",
+    sha256 = "93761371443acf55f429cab6628d5b423bf9a07a3445d2376b4ba52cb35a6d99",
+    urls = ["https://commondatastorage.googleapis.com/chrome-linux-sysroot/toolchain/812a1cdc57400e9e0b3def67d41403b8bb764d2d/debian_sid_amd64_sysroot.tar.xz"],
+)
+sysroot(
+    name = "org_chromium_sysroot_linux_arm64",
+    sha256 = "38b11a17004bf9f5245f1de1c20d45b389b9dab18ce564ad73b44b6655c61850",
+    urls = ["https://commondatastorage.googleapis.com/chrome-linux-sysroot/toolchain/f421bdbada4278feede4bae1ec8be91299e8938b/debian_sid_arm64_sysroot.tar.xz"],
+)
+```
+
+For `git_override` and `local_path_override` variants, see the root `README.md`.
+
+## Example: Rust Binary -> OCI Image
+
+```starlark
+load("@rules_rust//rust:defs.bzl", "rust_binary")
+load("@rules_monorepo//rules_monorepo_rust:defs.bzl", "rust_binary_oci_image")
+
+rust_binary(
+    name = "market_maker",
+    srcs = ["src/main.rs"],
+    edition = "2024",
+)
+
+rust_binary_oci_image(
+    name = "market_maker",
+    binary = ":market_maker",
+    repository = "registry.example.com/trading/market-maker",
+)
+```
+
+Generated targets:
+
+- `:market_maker_image`
+- `:market_maker_image.digest`
+- `:market_maker_load`
+- `:market_maker_tarball`
+- `:market_maker_push`
+
+## Example: Explicit ARM64 Binary/Image
+
+```starlark
+load("@rules_monorepo//rules_monorepo:defs.bzl", "binary_oci_image")
+load("@rules_monorepo//rules_monorepo_rust:defs.bzl", "transitioned_binary_arm64")
+
+transitioned_binary_arm64(
+    name = "market_maker_linux_arm64",
+    binary = ":market_maker",
+)
+
+binary_oci_image(
+    name = "market_maker_arm64",
+    binary = ":market_maker_linux_arm64",
+    base = "@distroless_cc_linux_arm64",
+    repository = "registry.example.com/trading/market-maker-arm64",
+)
+```
+
+## Example: Deploy With k8s_oci_deploy
+
+```starlark
+load("@rules_monorepo//rules_monorepo:defs.bzl", "k8s_oci_deploy")
+load("@rules_monorepo//rules_monorepo_rust:defs.bzl", "rust_binary_oci_image")
+
+rust_binary_oci_image(
+    name = "strategy_runner",
+    binary = ":strategy_runner",
+    repository = "registry.example.com/trading/strategy-runner",
+)
+
+filegroup(
+    name = "k8s_manifests",
+    srcs = glob(["k8s/*.yaml"]),
+)
+
+k8s_oci_deploy(
+    name = "strategy_runner_deploy",
+    namespace = "strategies",
+    manifests = [":k8s_manifests"],
+    images = [{"push": ":strategy_runner_push"}],
+    rollout_selector = "app.kubernetes.io/name=strategy-runner",
+    rollout_kinds = ["deployment"],
+)
+```
