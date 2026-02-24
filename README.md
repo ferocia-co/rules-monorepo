@@ -79,6 +79,14 @@ monorepo_tools = use_extension(
     "@rules_monorepo//rules_monorepo:extensions.bzl",
     "monorepo_tools",
 )
+
+# Optional: configure which k8s tool repos to create.
+# Defaults are kubectl=True, kustomize=True.
+# monorepo_tools.k8s(
+#     kubectl = False,
+#     kustomize = True,
+# )
+
 use_repo(monorepo_tools, "kubectl_bin", "kustomize_bin")
 
 # Optional if you rely on default image base labels used by binary_oci_image.

@@ -65,6 +65,7 @@ sysroot(
 monorepo_tools = use_extension(
     "//rules_monorepo:extensions.bzl",
     "monorepo_tools",
+    dev_dependency = True,
 )
 use_repo(monorepo_tools, "kubectl_bin", "kustomize_bin")
 
