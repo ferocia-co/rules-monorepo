@@ -7,7 +7,7 @@ This directory contains copy-pasteable examples for `rules_monorepo`.
 In a consumer repo `MODULE.bazel`:
 
 ```starlark
-bazel_dep(name = "rules_monorepo", version = "0.1.0")
+bazel_dep(name = "rules_monorepo", version = "0.2.0")
 
 archive_override(
     module_name = "rules_monorepo",
@@ -19,6 +19,7 @@ archive_override(
 
 See root `README.md` for `git_override` and `local_path_override` alternatives.
 See `rules_monorepo_rust/README.md` for Cargo-inferred Rust wrappers (`cargo_defs.bzl`) that avoid duplicated crate deps in BUILD files.
+See `rules_monorepo_frontend/README.md` for pnpm/Svelte/Vite frontend rules.
 
 ## rust_service
 
@@ -45,4 +46,30 @@ Analysis-only validation command:
 
 ```bash
 env -u BAZEL_OPTS bazelisk --ignore_all_rc_files --output_user_root=/tmp/rules-monorepo-bazel-root build --nobuild //examples/rust_service:app_deploy.apply
+```
+
+## svelte_vite_app
+
+Path: `examples/svelte_vite_app`
+
+Demonstrates:
+
+- package-local `@npm` bin wrappers from `aspect_rules_js`
+- `pnpm_svelte_vite_app` Vite bundle target
+- `pnpm_frontend_checks` aggregate Svelte, TypeScript, Prettier, and ESLint checks
+- `pnpm_playwright_test` smoke test wiring
+- `frontend_static_site_oci_image` nginx static-site image targets
+
+Key targets:
+
+- `//examples/svelte_vite_app:bundle`
+- `//examples/svelte_vite_app:checks`
+- `//examples/svelte_vite_app:playwright_test`
+- `//examples/svelte_vite_app:frontend_image`
+- `//examples/svelte_vite_app:frontend_push`
+
+Analysis-only validation command:
+
+```bash
+env -u BAZEL_OPTS bazelisk --ignore_all_rc_files --output_user_root=/tmp/rules-monorepo-bazel-root build --nobuild //examples/svelte_vite_app:bundle //examples/svelte_vite_app:checks //examples/svelte_vite_app:frontend_image
 ```

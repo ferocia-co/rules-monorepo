@@ -1,0 +1,29 @@
+{
+  "name": "@rules-monorepo/svelte-vite-app",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "lint": "eslint --max-warnings 0 *.{config.mjs,config.ts} src/**/*.{svelte,ts} tests/**/*.mjs",
+    "format": "prettier --check *.{html,json,mjs,ts} src/**/*.{css,svelte,ts} tests/**/*.mjs",
+    "test": "playwright test"
+  },
+  "dependencies": {
+    "@sveltejs/vite-plugin-svelte": "7.0.0",
+    "svelte": "5.55.4",
+    "vite": "8.0.8"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.2",
+    "eslint": "9.39.2",
+    "eslint-plugin-svelte": "3.13.0",
+    "playwright": "1.57.0",
+    "prettier": "3.7.4",
+    "prettier-plugin-svelte": "3.4.0",
+    "svelte-check": "4.3.4",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.50.0"
+  },
+  "packageManager": "pnpm@10.33.0"
+}

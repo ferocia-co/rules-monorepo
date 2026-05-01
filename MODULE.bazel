@@ -1,17 +1,44 @@
 module(
     name = "rules_monorepo",
-    version = "0.1.0",
+    version = "0.2.0",
     compatibility_level = 1,
 )
 
 bazel_dep(name = "aspect_bazel_lib", version = "2.22.5")
+bazel_dep(name = "aspect_rules_js", version = "3.0.3")
 bazel_dep(name = "bazel_skylib", version = "1.8.2")
 bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "rules_oci", version = "2.2.7")
+bazel_dep(name = "rules_nodejs", version = "6.7.4")
 bazel_dep(name = "rules_pkg", version = "1.0.1")
 bazel_dep(name = "rules_rust", version = "0.63.0")
 bazel_dep(name = "rules_shell", version = "0.6.1")
 bazel_dep(name = "toolchains_llvm", version = "1.6.0", dev_dependency = True)
+
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = "playwright_chromium_headless_shell_linux_x64",
+    build_file_content = """
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "chrome_headless_shell_files",
+    srcs = glob(["chrome-headless-shell-linux64/**"]),
+)
+
+filegroup(
+    name = "chrome_headless_shell",
+    srcs = ["chrome-headless-shell-linux64/chrome-headless-shell"],
+)
+""",
+    sha256 = "a9a525cb3832d59a810f78f8ba6c5ed3592a6a488984627f5d827c2a365c8a5a",
+    urls = [
+        "https://cdn.playwright.dev/dbazure/download/playwright/builds/chromium/1200/chromium-headless-shell-linux.zip",
+        "https://playwright.download.prss.microsoft.com/dbazure/download/playwright/builds/chromium/1200/chromium-headless-shell-linux.zip",
+        "https://cdn.playwright.dev/builds/chromium/1200/chromium-headless-shell-linux.zip",
+    ],
+    dev_dependency = True,
+)
 
 # Development-only toolchain setup for this repository's examples.
 # Marked as dev_dependency so consumers of @rules_monorepo don't inherit this.
@@ -69,6 +96,31 @@ monorepo_tools = use_extension(
 )
 use_repo(monorepo_tools, "kubectl_bin", "kustomize_bin")
 
+# Development-only frontend toolchain setup for this repository's examples.
+node = use_extension("@rules_nodejs//nodejs:extensions.bzl", "node", dev_dependency = True)
+node.toolchain(node_version = "24.14.0")
+use_repo(node, "nodejs_toolchains")
+
+pnpm = use_extension("@aspect_rules_js//npm:extensions.bzl", "pnpm", dev_dependency = True)
+pnpm.pnpm(pnpm_version = "10.33.0")
+use_repo(pnpm, "pnpm")
+
+npm = use_extension("@aspect_rules_js//npm:extensions.bzl", "npm", dev_dependency = True)
+npm.npm_translate_lock(
+    name = "npm",
+    data = ["//examples/svelte_vite_app:pnpm-workspace.yaml"],
+    pnpm_lock = "//examples/svelte_vite_app:pnpm-lock.yaml",
+    bins = {
+        "eslint": ["eslint=bin/eslint.js"],
+        "playwright": ["playwright=cli.js"],
+        "prettier": ["prettier=bin/prettier.cjs"],
+        "svelte-check": ["svelte-check=bin/svelte-check"],
+        "typescript": ["tsc=bin/tsc"],
+        "vite": ["vite=bin/vite.js"],
+    },
+)
+use_repo(npm, "npm")
+
 # Default OCI bases used by binary_oci_image / rust_binary_oci_image in examples.
 oci = use_extension("@rules_oci//oci:extensions.bzl", "oci", dev_dependency = True)
 oci.pull(
@@ -83,4 +135,9 @@ oci.pull(
     tag = "latest-arm64",
     reproducible = False,
 )
-use_repo(oci, "distroless_cc_linux_amd64", "distroless_cc_linux_arm64")
+oci.pull(
+    name = "nginx_unprivileged_linux_amd64",
+    image = "index.docker.io/nginxinc/nginx-unprivileged",
+    digest = "sha256:28d91bdce70ad09025ea901458fdd149259d8e05982ade79d4ef2c0d9470eb48",
+)
+use_repo(oci, "distroless_cc_linux_amd64", "distroless_cc_linux_arm64", "nginx_unprivileged_linux_amd64")

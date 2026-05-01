@@ -2,6 +2,9 @@
 bazel-*
 MODULE.bazel.lock
 
+# JavaScript package managers
+node_modules/
+
 # Editor/OS
 .DS_Store
 

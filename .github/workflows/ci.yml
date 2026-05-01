@@ -27,10 +27,13 @@ jobs:
         run: bazelisk version
 
       - name: Validate Helper Script Syntax
-        run: bash -n rules_monorepo/k8s/k8s_apply_helper.sh
+        run: bash -n rules_monorepo/k8s/k8s_apply_helper.sh rules_monorepo_rust/private/cargo_audit_test.sh
 
       - name: Query Target Graph
         run: bazelisk --ignore_all_rc_files query //...
 
       - name: Analyze Rust Deploy Example
         run: bazelisk --ignore_all_rc_files build --nobuild //examples/rust_service:app_deploy.apply
+
+      - name: Analyze Frontend Example
+        run: bazelisk --ignore_all_rc_files build --nobuild //examples/svelte_vite_app:bundle //examples/svelte_vite_app:checks //examples/svelte_vite_app:frontend_image
