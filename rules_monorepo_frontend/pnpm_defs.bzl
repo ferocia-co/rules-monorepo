@@ -794,8 +794,8 @@ def frontend_node_server_oci_image(
 
     base_tags = _dedupe(list(tags or []) + ["manual", "oci"])
 
-    bundle_layer = name + "_bundle_layer"
-    package_json_layer = name + "_package_json_layer"
+    package_layer = name + "_package_layer"
+    app_layer = name + "_app_layer"
     node_modules_layer = name + "_node_modules_layer"
     extra_layer = name + "_extra_layer"
     image_amd64 = name + "_image_amd64"
@@ -815,22 +815,22 @@ def frontend_node_server_oci_image(
         exposed_ports = ["3000/tcp"]
 
     pkg_tar(
-        name = bundle_layer,
-        srcs = _as_list(bundle),
-        package_dir = app_dir,
-        tags = base_tags,
-    )
-
-    pkg_tar(
-        name = package_json_layer,
+        name = package_layer,
         srcs = [package_json],
         package_dir = app_dir,
         tags = base_tags,
     )
 
+    pkg_tar(
+        name = app_layer,
+        srcs = _as_list(bundle),
+        package_dir = app_dir,
+        tags = base_tags,
+    )
+
     image_tars = [
-        ":" + bundle_layer,
-        ":" + package_json_layer,
+        ":" + package_layer,
+        ":" + app_layer,
     ]
 
     if node_modules != None:
