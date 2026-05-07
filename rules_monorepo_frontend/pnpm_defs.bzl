@@ -505,7 +505,12 @@ def pnpm_vitest_test(
         data = _with_node_modules(srcs, node_modules),
         args = args or ["run"],
         chdir = _default_chdir(chdir),
-        env = env or {"CI": "1"},
+        env = _merge_env({
+            "CI": "1",
+            "FORCE_COLOR": "0",
+            "NO_COLOR": "1",
+            "TERM": "dumb",
+        }, env),
         tags = _dedupe(tags),
         **kwargs
     )
@@ -526,7 +531,12 @@ def pnpm_cypress_test(
         data = _with_node_modules(srcs, node_modules),
         args = args or ["run"],
         chdir = _default_chdir(chdir),
-        env = env or {"CI": "1"},
+        env = _merge_env({
+            "CI": "1",
+            "FORCE_COLOR": "0",
+            "NO_COLOR": "1",
+            "TERM": "dumb",
+        }, env),
         tags = _dedupe(list(tags or []) + ["e2e", "exclusive"]),
         **kwargs
     )
@@ -638,10 +648,16 @@ def pnpm_playwright_test(
         env = select({
             linux_label: {
                 "CI": "1",
+                "FORCE_COLOR": "0",
                 chromium_env: "$(rootpath {})".format(chromium_headless_shell),
+                "NO_COLOR": "1",
+                "TERM": "dumb",
             },
             "//conditions:default": {
                 "CI": "1",
+                "FORCE_COLOR": "0",
+                "NO_COLOR": "1",
+                "TERM": "dumb",
             },
         }),
         tags = _dedupe(list(tags or []) + ["exclusive"]),
