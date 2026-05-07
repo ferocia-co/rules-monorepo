@@ -5,14 +5,23 @@ load("@npm//examples/svelte_vite_app:svelte-check/package_json.bzl", svelte_chec
 load("@npm//examples/svelte_vite_app:typescript/package_json.bzl", tsc_bin = "bin")
 load("@npm//examples/svelte_vite_app:vite/package_json.bzl", vite_bin = "bin")
 load("@npm//:defs.bzl", "npm_link_all_packages")
-load("@rules_monorepo//rules_monorepo_frontend:defs.bzl", "frontend_static_site_oci_image", "pnpm_frontend_checks", "pnpm_playwright_cli", "pnpm_playwright_test", "pnpm_svelte_vite_app")
+load(
+    "@rules_monorepo//rules_monorepo_frontend:defs.bzl",
+    "frontend_sources",
+    "frontend_static_site_oci_image",
+    "pnpm_frontend_checks",
+    "pnpm_playwright_cli",
+    "pnpm_playwright_test",
+    "pnpm_vite_build",
+)
 
 package(default_visibility = ["//visibility:public"])
 
 npm_link_all_packages()
 
-APP_SRCS = glob(
-    [
+frontend_sources(
+    name = "sources",
+    include = [
         "eslint.config.mjs",
         "index.html",
         "nginx.conf",
@@ -31,20 +40,15 @@ APP_SRCS = glob(
     ],
 )
 
-filegroup(
-    name = "sources",
-    srcs = APP_SRCS,
-)
-
-pnpm_svelte_vite_app(
+pnpm_vite_build(
     name = "bundle",
     vite = vite_bin.vite,
-    srcs = APP_SRCS,
+    srcs = [":sources"],
 )
 
 pnpm_frontend_checks(
     name = "checks",
-    srcs = APP_SRCS,
+    srcs = [":sources"],
     eslint = eslint_bin.eslint,
     prettier = prettier_bin.prettier,
     svelte_check = svelte_check_bin.svelte_check,
@@ -59,7 +63,7 @@ pnpm_playwright_cli(
 pnpm_playwright_test(
     name = "playwright_test",
     entry_point = "tests/smoke.mjs",
-    srcs = APP_SRCS,
+    srcs = [":sources"],
 )
 
 frontend_static_site_oci_image(

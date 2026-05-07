@@ -241,12 +241,18 @@ the macros.
 
 Common targets:
 
+- `frontend_sources`: standard frontend source filegroup
+- `pnpm_vite_build` / `pnpm_vite_dev_server`: Vite build and dev-server targets
 - `pnpm_svelte_vite_app`: Vite bundle target
+- `pnpm_sveltekit_sync` / `pnpm_sveltekit_node_server`: SvelteKit sync and adapter-node runner
 - `pnpm_frontend_checks`: aggregate Svelte, TypeScript, Prettier, and ESLint checks
+- `pnpm_biome_check`, `pnpm_vitest_test`, `pnpm_cypress_test`: Biome, Vitest, and Cypress targets
+- `pnpm_storybook_static_build` / `pnpm_storybook_dev_server`: Storybook build and dev-server targets
 - `pnpm_playwright_test`: `js_test` with optional Linux Chromium headless-shell runfiles
 - `frontend_static_site_oci_image`: nginx static-site image pipeline
+- `frontend_node_server_oci_image`: Node server image pipeline
 
-`frontend_static_site_oci_image(name = "frontend", ...)` creates
+The frontend OCI image helpers create
 `frontend_image`, `frontend_image.digest`, `frontend_load`, `frontend_tarball`,
 and `frontend_push`. See `rules_monorepo_frontend/README.md` and
 `examples/svelte_vite_app`.

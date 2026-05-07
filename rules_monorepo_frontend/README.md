@@ -2,26 +2,15 @@
 
 Frontend layer for `rules_monorepo`.
 
-The v1 API targets pnpm workspaces that use Svelte, Vite, TypeScript,
-Prettier, ESLint, Playwright, and static nginx OCI images.
+These macros standardize Bazel target shapes for pnpm frontend packages. They
+do not own dependency setup: consuming repos still own `package.json`,
+`pnpm-lock.yaml`, `npm_translate_lock`, package-local `@npm` bin wrapper loads,
+Node/pnpm toolchains, browser archives, and OCI base image repositories.
 
 ## Dependency Model
 
-`package.json` and `pnpm-lock.yaml` stay the dependency source of truth.
-Configure `aspect_rules_js` in `MODULE.bazel` and load package-local generated
-bin wrappers from `@npm`.
-
-For pnpm v10, declare packages that run lifecycle hooks in
-`pnpm-workspace.yaml`:
-
-```yaml
-packages:
-  - interfaces/experiments/orderbook/ui
-
-onlyBuiltDependencies:
-  - esbuild
-  - playwright
-```
+Configure `aspect_rules_js` in the consuming repo and load package-local bin
+wrappers from `@npm`.
 
 ```starlark
 bazel_dep(name = "rules_nodejs", version = "6.7.4")
@@ -38,51 +27,28 @@ use_repo(pnpm, "pnpm")
 npm = use_extension("@aspect_rules_js//npm:extensions.bzl", "npm")
 npm.npm_translate_lock(
     name = "npm",
-    npmrc = "//:.npmrc",
     pnpm_lock = "//:pnpm-lock.yaml",
     bins = {
+        "@biomejs/biome": ["biome=bin/biome"],
+        "@sveltejs/kit": ["svelte-kit=svelte-kit.js"],
+        "cypress": ["cypress=bin/cypress"],
         "eslint": ["eslint=bin/eslint.js"],
         "playwright": ["playwright=cli.js"],
         "prettier": ["prettier=bin/prettier.cjs"],
+        "storybook": ["storybook=bin/index.cjs"],
         "svelte-check": ["svelte-check=bin/svelte-check"],
         "typescript": ["tsc=bin/tsc"],
         "vite": ["vite=bin/vite.js"],
+        "vitest": ["vitest=vitest.mjs"],
     },
 )
 use_repo(npm, "npm")
 ```
 
-If you use `pnpm_playwright_test` with the default Linux browser labels, add the
-same pinned headless-shell repository used by fw:
+Only declare the bins a package actually uses. If a tool requires extra linked
+workspace packages, pass those labels in that target's `srcs` or `data`.
 
-```starlark
-http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-http_archive(
-    name = "playwright_chromium_headless_shell_linux_x64",
-    build_file_content = """
-package(default_visibility = ["//visibility:public"])
-
-filegroup(
-    name = "chrome_headless_shell_files",
-    srcs = glob(["chrome-headless-shell-linux64/**"]),
-)
-
-filegroup(
-    name = "chrome_headless_shell",
-    srcs = ["chrome-headless-shell-linux64/chrome-headless-shell"],
-)
-""",
-    sha256 = "a9a525cb3832d59a810f78f8ba6c5ed3592a6a488984627f5d827c2a365c8a5a",
-    urls = [
-        "https://cdn.playwright.dev/dbazure/download/playwright/builds/chromium/1200/chromium-headless-shell-linux.zip",
-        "https://playwright.download.prss.microsoft.com/dbazure/download/playwright/builds/chromium/1200/chromium-headless-shell-linux.zip",
-        "https://cdn.playwright.dev/builds/chromium/1200/chromium-headless-shell-linux.zip",
-    ],
-)
-```
-
-## BUILD Usage
+## Static Vite App
 
 ```starlark
 load("@npm//path/to/app:eslint/package_json.bzl", eslint_bin = "bin")
@@ -91,22 +57,31 @@ load("@npm//path/to/app:prettier/package_json.bzl", prettier_bin = "bin")
 load("@npm//path/to/app:svelte-check/package_json.bzl", svelte_check_bin = "bin")
 load("@npm//path/to/app:typescript/package_json.bzl", tsc_bin = "bin")
 load("@npm//path/to/app:vite/package_json.bzl", vite_bin = "bin")
-load("@rules_monorepo//rules_monorepo_frontend:defs.bzl", "frontend_static_site_oci_image", "pnpm_frontend_checks", "pnpm_playwright_cli", "pnpm_playwright_test", "pnpm_svelte_vite_app")
+load(
+    "@rules_monorepo//rules_monorepo_frontend:defs.bzl",
+    "frontend_sources",
+    "frontend_static_site_oci_image",
+    "pnpm_frontend_checks",
+    "pnpm_playwright_cli",
+    "pnpm_playwright_test",
+    "pnpm_vite_build",
+)
 
-pnpm_svelte_vite_app(
+frontend_sources(name = "sources")
+
+pnpm_vite_build(
     name = "bundle",
     vite = vite_bin.vite,
     srcs = [":sources"],
-    out_dir = "dist",
 )
 
 pnpm_frontend_checks(
     name = "checks",
     srcs = [":sources"],
+    eslint = eslint_bin.eslint,
+    prettier = prettier_bin.prettier,
     svelte_check = svelte_check_bin.svelte_check,
     tsc = tsc_bin.tsc,
-    prettier = prettier_bin.prettier,
-    eslint = eslint_bin.eslint,
 )
 
 pnpm_playwright_cli(
@@ -123,17 +98,160 @@ pnpm_playwright_test(
 frontend_static_site_oci_image(
     name = "frontend",
     assets = ":bundle",
+    base = "@nginx_unprivileged_linux_amd64",
     nginx_conf = "nginx.conf",
     repository = "registry.example.com/frontend",
 )
 ```
 
-Callers still load the generated bin wrappers explicitly because Bazel loads
-`.bzl` files statically. The macros centralize the repeatable build, check,
-test, and OCI target shapes.
+`pnpm_svelte_vite_app` remains available for fw-compatible callers and delegates
+to `pnpm_vite_build`.
 
-`frontend_static_site_oci_image(name = "frontend", ...)` generates the same
-target names as fw's current UI packaging:
+## SvelteKit Node App
+
+```starlark
+load("@npm//apps/web:@biomejs/biome/package_json.bzl", biome_bin = "bin")
+load("@npm//apps/web:@sveltejs/kit/package_json.bzl", svelte_kit_bin = "bin")
+load("@npm//apps/web:cypress/package_json.bzl", cypress_bin = "bin")
+load("@npm//apps/web:storybook/package_json.bzl", storybook_bin = "bin")
+load("@npm//apps/web:svelte-check/package_json.bzl", svelte_check_bin = "bin")
+load("@npm//apps/web:typescript/package_json.bzl", tsc_bin = "bin")
+load("@npm//apps/web:vite/package_json.bzl", vite_bin = "bin")
+load("@npm//apps/web:vitest/package_json.bzl", vitest_bin = "bin")
+load(
+    "@rules_monorepo//rules_monorepo_frontend:defs.bzl",
+    "frontend_node_server_oci_image",
+    "frontend_sources",
+    "pnpm_biome_check",
+    "pnpm_cypress_test",
+    "pnpm_storybook_dev_server",
+    "pnpm_storybook_static_build",
+    "pnpm_svelte_check_test",
+    "pnpm_sveltekit_node_server",
+    "pnpm_sveltekit_sync",
+    "pnpm_tsc_noemit_test",
+    "pnpm_vite_build",
+    "pnpm_vite_dev_server",
+    "pnpm_vitest_test",
+)
+
+frontend_sources(
+    name = "sources",
+    extra_srcs = [".gitignore"],
+)
+
+pnpm_sveltekit_sync(
+    name = "sveltekit_sync",
+    svelte_kit = svelte_kit_bin.svelte_kit,
+    srcs = [":sources"],
+)
+
+pnpm_vite_build(
+    name = "bundle",
+    vite = vite_bin.vite,
+    srcs = [
+        ":sources",
+        ":sveltekit_sync",
+    ],
+    out_dir = "build",
+)
+
+pnpm_vite_dev_server(
+    name = "dev",
+    vite = vite_bin.vite_binary,
+    srcs = [
+        ":sources",
+        ":sveltekit_sync",
+    ],
+)
+
+pnpm_sveltekit_node_server(
+    name = "server",
+    bundle = ":bundle",
+)
+
+pnpm_svelte_check_test(
+    name = "svelte_check",
+    svelte_check = svelte_check_bin.svelte_check,
+    srcs = [
+        ":sources",
+        ":sveltekit_sync",
+    ],
+)
+
+pnpm_tsc_noemit_test(
+    name = "tsc_noemit",
+    tsc = tsc_bin.tsc,
+    srcs = [
+        ":sources",
+        ":sveltekit_sync",
+    ],
+)
+
+pnpm_biome_check(
+    name = "biome_check",
+    biome = biome_bin.biome,
+    srcs = [":sources"],
+)
+
+pnpm_vitest_test(
+    name = "vitest_test",
+    vitest = vitest_bin.vitest_test,
+    srcs = [
+        ":sources",
+        ":sveltekit_sync",
+    ],
+)
+
+pnpm_storybook_static_build(
+    name = "storybook",
+    storybook = storybook_bin.storybook,
+    srcs = [
+        ":sources",
+        "//:node_modules/@storybook/sveltekit",
+        "//:node_modules/react",
+        "//:node_modules/react-dom",
+    ],
+)
+
+pnpm_storybook_dev_server(
+    name = "storybook_dev",
+    storybook = storybook_bin.storybook_binary,
+    srcs = [
+        ":sources",
+        ":sveltekit_sync",
+        "//:node_modules/@storybook/sveltekit",
+        "//:node_modules/react",
+        "//:node_modules/react-dom",
+    ],
+)
+
+pnpm_cypress_test(
+    name = "cypress_e2e_test",
+    cypress = cypress_bin.cypress_test,
+    srcs = [
+        ":sources",
+        ":sveltekit_sync",
+        ":bundle",
+    ],
+    tags = ["no-sandbox"],
+)
+
+frontend_node_server_oci_image(
+    name = "frontend",
+    bundle = ":bundle",
+    base = "@nodejs_distroless_linux_amd64",
+    repository = "registry.example.com/frontend",
+)
+```
+
+Storybook support deliberately wraps only a caller-provided Storybook bin plus
+caller-provided `srcs`. It does not create hard-coded package-store links.
+
+## Generated OCI Targets
+
+`frontend_static_site_oci_image(name = "frontend", ...)` and
+`frontend_node_server_oci_image(name = "frontend", ...)` generate:
 
 - `frontend_image`
 - `frontend_image.digest`
@@ -141,6 +259,13 @@ target names as fw's current UI packaging:
 - `frontend_tarball`
 - `frontend_push`
 
-`pnpm_playwright_test` adds the Linux x86_64 headless-shell runfiles when the
-target platform matches Linux and sets
-`FEROCIA_PLAYWRIGHT_CHROMIUM_HEADLESS_SHELL` to the shell binary rootpath.
+When `repository` is omitted, the push target uses the existing placeholder
+`registry.invalid/...` default. Real consumers should pass their own registry.
+The Node image helper defaults to `/nodejs/bin/node /app/build/index.js`,
+`HOST=0.0.0.0`, `PORT=3000`, and `3000/tcp`, all of which callers may override.
+
+## Playwright Browser Archive
+
+`pnpm_playwright_test` can use Linux x86_64 Chromium headless-shell runfiles.
+If you keep the default browser labels, the consuming repo must define the
+`@playwright_chromium_headless_shell_linux_x64` repository itself.
