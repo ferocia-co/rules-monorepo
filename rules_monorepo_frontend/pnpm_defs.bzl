@@ -74,6 +74,11 @@ def _merge_env(defaults, env):
         out[key] = value
     return out
 
+def _default_env(defaults, env):
+    if env == None:
+        return defaults
+    return env
+
 def _target_name(label):
     if type(label) != "string":
         return None
@@ -505,7 +510,7 @@ def pnpm_vitest_test(
         data = _with_node_modules(srcs, node_modules),
         args = args or ["run"],
         chdir = _default_chdir(chdir),
-        env = _merge_env({
+        env = _default_env({
             "CI": "1",
             "FORCE_COLOR": "0",
             "NO_COLOR": "1",
@@ -531,7 +536,7 @@ def pnpm_cypress_test(
         data = _with_node_modules(srcs, node_modules),
         args = args or ["run"],
         chdir = _default_chdir(chdir),
-        env = _merge_env({
+        env = _default_env({
             "CI": "1",
             "FORCE_COLOR": "0",
             "NO_COLOR": "1",
