@@ -1,0 +1,3 @@
+# Summary
+
+- [Smoke](./index.md)

@@ -7,6 +7,7 @@ It provides:
 - `rules_monorepo`: language-agnostic rules for OCI image packaging and Kubernetes deployment
 - `rules_monorepo_rust`: Rust-specific rules for cross-platform builds layered on top of `rules_monorepo`
 - `rules_monorepo_frontend`: pnpm/Svelte/Vite checks, tests, and static frontend image packaging
+- `rules_monorepo_docs`: mdBook documentation builds from Bazel-managed sources
 
 The design goal is composability: keep deploy primitives generic, then add language-specific layers without coupling the core to one language ecosystem.
 
@@ -19,12 +20,14 @@ The design goal is composability: keep deploy primitives generic, then add langu
 - Build Rust binaries for Linux AMD64/ARM64 from non-Linux hosts using transitions
 - Run Cargo dependency audits against a pinned RustSec advisory DB
 - Build pnpm/Svelte/Vite static frontends and package them as nginx OCI images
+- Build mdBook documentation sites without committing generated HTML/CSS
 
 ## Repository Layout
 
 - `rules_monorepo/`: generic OCI + Kubernetes rules and tool bootstrap extension
 - `rules_monorepo_rust/`: Rust cross-platform transitions + Rust-to-OCI helper macros
 - `rules_monorepo_frontend/`: frontend build/check/test/image macros for pnpm apps
+- `rules_monorepo_docs/`: mdBook repository rule and documentation build rule
 - `examples/`: copy-pasteable sample targets
 
 ## Install (Bzlmod Without BCR)
@@ -108,6 +111,13 @@ oci.pull(
     reproducible = False,
 )
 use_repo(oci, "distroless_cc_linux_amd64", "distroless_cc_linux_arm64")
+
+# Optional: required when using mdbook_docs.
+download_mdbook = use_repo_rule(
+    "@rules_monorepo//rules_monorepo_docs:repositories.bzl",
+    "download_mdbook",
+)
+download_mdbook(name = "mdbook_bin")
 ```
 
 ## Load Paths
@@ -117,6 +127,7 @@ load("@rules_monorepo//rules_monorepo:defs.bzl", "binary_oci_image", "k8s_apply"
 load("@rules_monorepo//rules_monorepo_rust:defs.bzl", "rust_binary_oci_image", "transitioned_binary_arm64")
 load("@rules_monorepo//rules_monorepo_rust:cargo_defs.bzl", "cargo_audit_test", "cargo_package", "cargo_rust_binary", "cargo_rust_library", "cargo_rust_proc_macro", "cargo_rust_test", "cargo_rust_test_suite")
 load("@rules_monorepo//rules_monorepo_frontend:defs.bzl", "frontend_static_site_oci_image", "pnpm_frontend_checks", "pnpm_playwright_test", "pnpm_svelte_vite_app")
+load("@rules_monorepo//rules_monorepo_docs:defs.bzl", "mdbook_docs")
 ```
 
 ## Quick Usage
@@ -257,6 +268,40 @@ The frontend OCI image helpers create
 and `frontend_push`. See `rules_monorepo_frontend/README.md` and
 `examples/svelte_vite_app`.
 
+## Documentation Rules
+
+`rules_monorepo_docs` downloads a pinned mdBook release binary and builds docs
+from source files staged in their Bazel package-relative layout.
+
+Configure the tool repository in `MODULE.bazel`:
+
+```starlark
+download_mdbook = use_repo_rule(
+    "@rules_monorepo//rules_monorepo_docs:repositories.bzl",
+    "download_mdbook",
+)
+download_mdbook(name = "mdbook_bin")
+```
+
+Use the rule next to a standard mdBook `book.toml`:
+
+```starlark
+load("@rules_monorepo//rules_monorepo_docs:defs.bzl", "mdbook_docs")
+
+mdbook_docs(
+    name = "docs",
+    book = "book.toml",
+    mdbook = "@mdbook_bin//:mdbook",
+    srcs = glob(["src/**"]),
+)
+```
+
+The default mdBook destination directory is `book`, and the declared Bazel
+directory output also defaults to `book`. Set `build_dir` when mdBook should
+write to another destination, and `out_dir` when the Bazel output directory
+should use another name. Pass `postbuild_script` for deterministic
+post-processing that should run from the staged book root after `mdbook build`.
+
 ## Examples
 
 - `examples/rust_service`: Rust binary -> OCI image -> Kubernetes apply/delete targets
@@ -267,6 +312,7 @@ and `frontend_push`. See `rules_monorepo_frontend/README.md` and
 - `rules_monorepo/README.md`
 - `rules_monorepo_rust/README.md`
 - `rules_monorepo_frontend/README.md`
+- `rules_monorepo_docs/README.md`
 - `examples/README.md`
 
 ## Release Notes

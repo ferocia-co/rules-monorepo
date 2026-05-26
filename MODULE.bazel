@@ -96,6 +96,13 @@ monorepo_tools = use_extension(
 )
 use_repo(monorepo_tools, "kubectl_bin", "kustomize_bin")
 
+# Development-only mdBook setup for the docs rule smoke target.
+download_mdbook = use_repo_rule(
+    "//rules_monorepo_docs:repositories.bzl",
+    "download_mdbook",
+)
+download_mdbook(name = "mdbook_bin", dev_dependency = True)
+
 # Development-only frontend toolchain setup for this repository's examples.
 node = use_extension("@rules_nodejs//nodejs:extensions.bzl", "node", dev_dependency = True)
 node.toolchain(node_version = "24.14.0")
