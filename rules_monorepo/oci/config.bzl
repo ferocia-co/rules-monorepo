@@ -7,14 +7,45 @@ _DEFAULT_BASES = {
 
 _FORMATS = ["docker", "oci"]
 
+def oci_archive_target_names(name):
+    """Returns the stable public labels emitted by oci_archive."""
+    return struct(
+        load_target = name + "_load",
+        tarball = name + "_tarball",
+    )
+
 def binary_oci_target_names(name):
     """Returns the stable public labels emitted by binary_oci_image."""
+    archive = oci_archive_target_names(name)
     return struct(
         digest = name + "_image.digest",
         image = name + "_image",
-        load_target = name + "_load",
+        load_target = archive.load_target,
         push = name + "_push",
-        tarball = name + "_tarball",
+        tarball = archive.tarball,
+    )
+
+def resolve_oci_archive_config(
+        name,
+        format = "oci",
+        output = None,
+        tarball_format = None):
+    """Validates and resolves stable defaults for OCI load/tarball targets."""
+    if format not in _FORMATS:
+        fail("format must be one of {}, got {!r}".format(_FORMATS, format))
+    if tarball_format == None:
+        tarball_format = format
+    if tarball_format not in _FORMATS:
+        fail("tarball_format must be one of {}, got {!r}".format(_FORMATS, tarball_format))
+    if output == None:
+        output = name + ".tar"
+    if type(output) != "string" or output == "":
+        fail("output must be a non-empty string")
+
+    return struct(
+        format = format,
+        output = output,
+        tarball_format = tarball_format,
     )
 
 def resolve_binary_oci_config(

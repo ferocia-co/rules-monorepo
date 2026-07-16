@@ -214,6 +214,11 @@ rust_binary_oci_image(
 Generated public targets are `:worker_image`, `:worker_image.digest`,
 `:worker_load`, `:worker_tarball`, and `:worker_push`.
 
+For an additional Docker/OCI load and tarball pair around any already-built
+image, use the language-agnostic `oci_archive` macro from
+`@rules_monorepo//rules_monorepo:defs.bzl`; it does not rebuild the Rust binary
+or image.
+
 Each invocation creates exactly one platform image. Defaults are AMD64, OCI
 load/tarball output, `/app`, UID/GID `65532:65532`, and the shared pinned
 Debian 12 distroless `cc:nonroot` base. Use `load_format = "docker"` for `fw`;

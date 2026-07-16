@@ -11,7 +11,7 @@ Language-agnostic Bazel rules for:
 Load from:
 
 ```starlark
-load("@rules_monorepo//rules_monorepo:defs.bzl", "binary_oci_image", "k8s_apply", "k8s_oci_deploy")
+load("@rules_monorepo//rules_monorepo:defs.bzl", "binary_oci_image", "k8s_apply", "k8s_oci_deploy", "oci_archive")
 ```
 
 Rules/macros:
@@ -19,6 +19,7 @@ Rules/macros:
 - `binary_oci_image` (alias: `monorepo_binary_oci_image`)
 - `k8s_apply` (alias: `monorepo_k8s_apply`)
 - `k8s_oci_deploy` (alias: `monorepo_k8s_oci_deploy`)
+- `oci_archive` (alias: `monorepo_oci_archive`)
 
 ## Required MODULE Setup
 
@@ -95,6 +96,25 @@ binary_oci_image(
     repo_tags = ["gateway:local"],
 )
 ```
+
+## oci_archive
+
+Adds local-load and tarball targets around an existing OCI image without
+rebuilding or changing that image:
+
+```starlark
+oci_archive(
+    name = "gateway_component_oci",
+    image = ":gateway_image",
+    format = "docker",
+    repo_tags = ["gateway:local"],
+)
+```
+
+The generated targets are `<name>_load` and `<name>_tarball`. `format` accepts
+`oci` (default) or `docker`; `tarball_format` may differ when needed. Pass
+`output` to choose the tar filename and `tags` to add tags alongside the
+standard `manual`, `oci`, `oci_load`, and `oci_tarball` tags.
 
 ## k8s_apply
 

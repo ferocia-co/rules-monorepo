@@ -15,6 +15,8 @@ Options:
   --repository REPO  Override the repository for every push target; push-only.
   --tag TAG          Add a runtime push tag; repeatable and push-only.
   --jobs N           Maximum Bazel jobs/push processes (default: 4).
+  --compilation-mode MODE
+                     Bazel compilation mode: fastbuild, dbg, or opt (default: opt).
   --dry-run          Query normally, but print operations instead of running.
   -h, --help         Show this help.
 EOF
@@ -30,6 +32,14 @@ append_line() {
     printf '%s' "$2"
   else
     printf '%s\n%s' "$1" "$2"
+  fi
+}
+
+append_unique_line() {
+  if [ -n "$1" ] && printf '%s\n' "$1" | grep -Fqx -- "$2"; then
+    printf '%s' "$1"
+  else
+    append_line "$1" "$2"
   fi
 }
 
@@ -49,6 +59,7 @@ repository=""
 tags=""
 select_all=0
 jobs=4
+compilation_mode="opt"
 dry_run=0
 
 while [ "$#" -gt 0 ]; do
@@ -79,7 +90,7 @@ while [ "$#" -gt 0 ]; do
       ;;
     --tag)
       [ "$#" -ge 2 ] || die "--tag requires a value"
-      tags="$(append_line "$tags" "$2")"
+      tags="$(append_unique_line "$tags" "$2")"
       shift 2
       ;;
     --repository)
@@ -97,6 +108,15 @@ while [ "$#" -gt 0 ]; do
       jobs="$2"
       case "$jobs" in
         ''|*[!0-9]*|0) die "--jobs requires a positive integer" ;;
+      esac
+      shift 2
+      ;;
+    --compilation-mode)
+      [ "$#" -ge 2 ] || die "--compilation-mode requires a value"
+      compilation_mode="$2"
+      case "$compilation_mode" in
+        fastbuild|dbg|opt) ;;
+        *) die "--compilation-mode must be one of fastbuild, dbg, or opt" ;;
       esac
       shift 2
       ;;
@@ -165,8 +185,12 @@ else
     for target in $discovered; do
       target_name=${target##*:}
       logical_name=${target_name%"$suffix"}
+      conventional_name=$logical_name
+      case "$conventional_name" in
+        *_oci) conventional_name=${conventional_name%_oci} ;;
+      esac
       case "$requested" in
-        "$target"|"$target_name"|"$logical_name")
+        "$target"|"$target_name"|"$logical_name"|"$conventional_name")
           if ! printf '%s\n' "$selected" | grep -Fqx "$target"; then
             selected="$(append_line "$selected" "$target")"
           fi
@@ -180,7 +204,7 @@ else
 fi
 
 if [ "$mode" = "build" ] || [ "$mode" = "tarball" ]; then
-  set -- build "--jobs=$jobs"
+  set -- build "--compilation_mode=$compilation_mode" "--jobs=$jobs"
   old_ifs=$IFS
   IFS='
 '
@@ -198,7 +222,7 @@ fi
 
 run_push() {
   push_target="$1"
-  set -- run "$push_target" --
+  set -- run "--compilation_mode=$compilation_mode" "$push_target" --
   if [ -n "$repository" ]; then
     set -- "$@" --repository "$repository"
   fi

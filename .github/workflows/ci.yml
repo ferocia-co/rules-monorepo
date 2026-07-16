@@ -47,7 +47,13 @@ jobs:
         run: bazelisk build --nobuild //examples/rust_service:app_deploy.apply
 
       - name: Build Representative OCI Images
-        run: bazelisk build //examples/rust_service:app_image //examples/rust_service:app_arm64_image
+        run: |
+          bazelisk build \
+            //examples/rust_service:app_image \
+            //examples/rust_service:app_tarball \
+            //examples/rust_service:app_arm64_image \
+            //examples/rust_service:app_arm64_tarball \
+            //examples/rust_service:app_component_oci_tarball
 
       - name: Analyze Frontend Example
         run: bazelisk build --nobuild //examples/svelte_vite_app:bundle //examples/svelte_vite_app:checks //examples/svelte_vite_app:frontend_image

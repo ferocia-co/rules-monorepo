@@ -109,7 +109,7 @@ download_mdbook(name = "mdbook_bin")
 ## Load Paths
 
 ```starlark
-load("@rules_monorepo//rules_monorepo:defs.bzl", "binary_oci_image", "k8s_apply", "k8s_oci_deploy")
+load("@rules_monorepo//rules_monorepo:defs.bzl", "binary_oci_image", "k8s_apply", "k8s_oci_deploy", "oci_archive")
 load("@rules_monorepo//rules_monorepo_rust:defs.bzl", "rust_binary_oci_image", "transitioned_binary_arm64")
 load("@rules_monorepo//rules_monorepo_rust:cargo_defs.bzl", "cargo_audit_test", "cargo_package", "cargo_rust_binary", "cargo_rust_library", "cargo_rust_proc_macro", "cargo_rust_test", "cargo_rust_test_suite")
 load("@rules_monorepo//rules_monorepo_frontend:defs.bzl", "frontend_static_site_oci_image", "pnpm_frontend_checks", "pnpm_playwright_test", "pnpm_svelte_vite_app")
@@ -129,6 +129,20 @@ binary_oci_image(
     repo_tags = ["gateway:local"],
 )
 ```
+
+### Existing image to local archive
+
+```starlark
+oci_archive(
+    name = "gateway_component_oci",
+    image = ":gateway_image",
+    format = "docker",
+    repo_tags = ["gateway:local"],
+)
+```
+
+This creates `gateway_component_oci_load` and
+`gateway_component_oci_tarball` without rebuilding the existing image.
 
 ### Kubernetes deploy
 
@@ -269,7 +283,10 @@ bazel run @rules_monorepo//tools/oci -- push --bazel ./tools/bazel \
 
 The command discovers standard OCI tags, supports selected/all images and
 bounded push concurrency, and offers `--dry-run` for non-mutating validation.
-In push mode, `--repository` overrides the repository for every selected image.
+Build, tarball, and push operations use optimized binaries by default. A
+conventional trailing `_oci` is optional during selection, and repeated runtime
+tags are deduplicated. In push mode, `--repository` overrides the repository
+for every selected image.
 
 ## Frontend Rules
 
@@ -358,7 +375,7 @@ Checks performed:
 - helper script syntax checks for Kubernetes, cargo-audit, and OCI tooling
 - full target graph query (`bazelisk --ignore_all_rc_files query //...`)
 - OCI configuration/CLI tests and hermetic multi-lock cargo-audit tests
-- representative AMD64 and ARM64 distroless image builds
+- representative AMD64/ARM64 distroless image and archive builds
 - analysis build for the end-to-end example (`bazelisk --ignore_all_rc_files build --nobuild //examples/rust_service:app_deploy.apply`)
 - analysis build for the frontend example (`bazelisk --ignore_all_rc_files build --nobuild //examples/svelte_vite_app:bundle //examples/svelte_vite_app:checks //examples/svelte_vite_app:frontend_image`)
 

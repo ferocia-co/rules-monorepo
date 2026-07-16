@@ -13,8 +13,12 @@ bazel run @rules_monorepo//tools/oci -- push --bazel ./tools/bazel \
 ```
 
 `--scope` limits discovery to a query scope. `--image` accepts a logical name,
-the generated target name, or a full label and may be repeated. In push mode,
-`--repository` overrides the repository for every selected target, while
-`--tag` may be repeated. Pushes use at most `--jobs` concurrent Bazel processes.
-Use `--dry-run` to validate selection and command construction without loading
-or pushing images.
+the generated target name, or a full label and may be repeated. A conventional
+trailing `_oci` is optional, so `--image worker` also selects
+`worker_oci_image`. Build, tarball, and push operations use optimized (`opt`)
+binaries by default; `--compilation-mode fastbuild|dbg|opt` provides an explicit
+override. In push mode, `--repository` overrides the repository for every
+selected target, while repeated `--tag` values are deduplicated in first-seen
+order. Pushes use at most `--jobs` concurrent Bazel processes. Use `--dry-run`
+to validate selection and command construction without loading or pushing
+images.

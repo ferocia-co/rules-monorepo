@@ -2,7 +2,7 @@
 
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_image_index", "oci_load", "oci_push")
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
-load(":oci/config.bzl", "binary_oci_target_names", "resolve_binary_oci_config")
+load(":oci/config.bzl", "binary_oci_target_names", "oci_archive_target_names", "resolve_binary_oci_config", "resolve_oci_archive_config")
 
 def _executable_file_impl(ctx):
     executable = ctx.attr.binary[DefaultInfo].files_to_run.executable
@@ -54,6 +54,89 @@ def _target_name(label):
     if ":" in label:
         return label.rsplit(":", 1)[1]
     return label.rsplit("/", 1)[-1]
+
+def oci_archive(
+        name,
+        image,
+        format = "oci",
+        output = None,
+        repo_tags = None,
+        tags = None,
+        tarball_format = None):
+    """Wrap an existing OCI image with stable local-load and tarball targets.
+
+    Generated targets:
+      - <name>_load
+      - <name>_tarball
+
+    `tarball_format` defaults to `format`; callers that only need one transport
+    format should set `format` alone.
+    """
+
+    base_tags = _dedupe_tags(tags)
+    config = resolve_oci_archive_config(
+        name = name,
+        format = format,
+        output = output,
+        tarball_format = tarball_format,
+    )
+    public = oci_archive_target_names(name)
+
+    if repo_tags == None:
+        repo_tags = ["{}:local".format(_default_repo_name(name))]
+
+    # rules_oci requires an image-index input when emitting an OCI archive.
+    # This transport-only wrapper leaves the caller's image target unchanged.
+    oci_transport_image = None
+    if config.format == "oci" or config.tarball_format == "oci":
+        oci_transport_image = name + "_transport_oci_index"
+        oci_image_index(
+            name = oci_transport_image,
+            images = [image],
+            tags = base_tags + ["oci_transport_internal"],
+        )
+
+    load_image = image
+    if config.format == "oci":
+        load_image = ":" + oci_transport_image
+
+    oci_load(
+        name = public.load_target,
+        image = load_image,
+        format = config.format,
+        repo_tags = repo_tags,
+        tags = base_tags + ["oci_load"],
+    )
+
+    tarball_load_target = public.load_target
+    if config.tarball_format != config.format:
+        tarball_load_target = name + "_tarball_{}_load".format(config.tarball_format)
+        tarball_image = image
+        if config.tarball_format == "oci":
+            tarball_image = ":" + oci_transport_image
+        oci_load(
+            name = tarball_load_target,
+            image = tarball_image,
+            format = config.tarball_format,
+            repo_tags = repo_tags,
+            tags = base_tags + ["oci_tarball_internal"],
+        )
+
+    tarball_files = name + "_tarball_files"
+    native.filegroup(
+        name = tarball_files,
+        srcs = [":" + tarball_load_target],
+        output_group = "tarball",
+        tags = base_tags + ["oci_tarball"],
+    )
+
+    native.genrule(
+        name = public.tarball,
+        srcs = [":" + tarball_files],
+        outs = [config.output],
+        cmd = "cp $(location :{}) $@".format(tarball_files),
+        tags = base_tags + ["oci_tarball"],
+    )
 
 def binary_oci_image(
         name,
@@ -113,7 +196,6 @@ def binary_oci_image(
     binary_file = name + "_binary_file_" + architecture
     public = binary_oci_target_names(name)
     image = public.image
-    load_target = public.load_target
     push_target = public.push
 
     _executable_file(
@@ -161,60 +243,14 @@ def binary_oci_image(
     if repo_tags == None:
         repo_tags = ["{}:local".format(_default_repo_name(name))]
 
-    tarball_files = name + "_tarball_files"
-    tarball_target = public.tarball
-
-    # rules_oci requires an image-index input when emitting an OCI archive.
-    # This is a single-entry transport wrapper only; the public image and push
-    # targets remain the architecture-specific image manifest above.
-    oci_transport_image = None
-    if config.load_format == "oci" or config.tarball_format == "oci":
-        oci_transport_image = name + "_transport_{}_oci_index".format(architecture)
-        oci_image_index(
-            name = oci_transport_image,
-            images = [":" + image_arch],
-            tags = base_tags + ["oci_transport_internal"],
-        )
-
-    load_image = ":" + image
-    if config.load_format == "oci":
-        load_image = ":" + oci_transport_image
-
-    oci_load(
-        name = load_target,
-        image = load_image,
+    oci_archive(
+        name = name,
+        image = ":" + image_arch,
         format = config.load_format,
+        output = name + ".tar",
         repo_tags = repo_tags,
-        tags = base_tags + ["oci_load"],
-    )
-
-    tarball_load_target = load_target
-    if config.tarball_format != config.load_format:
-        tarball_load_target = name + "_tarball_{}_{}_load".format(architecture, config.tarball_format)
-        tarball_image = ":" + image
-        if config.tarball_format == "oci":
-            tarball_image = ":" + oci_transport_image
-        oci_load(
-            name = tarball_load_target,
-            image = tarball_image,
-            format = config.tarball_format,
-            repo_tags = repo_tags,
-            tags = base_tags + ["oci_tarball_internal"],
-        )
-
-    native.filegroup(
-        name = tarball_files,
-        srcs = [":" + tarball_load_target],
-        output_group = "tarball",
-        tags = base_tags + ["oci_tarball"],
-    )
-
-    native.genrule(
-        name = tarball_target,
-        srcs = [":" + tarball_files],
-        outs = [name + ".tar"],
-        cmd = "cp $(location :{}) $@".format(tarball_files),
-        tags = base_tags + ["oci_tarball"],
+        tags = base_tags,
+        tarball_format = config.tarball_format,
     )
 
     if repository == None:

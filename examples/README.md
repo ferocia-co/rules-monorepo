@@ -44,6 +44,7 @@ Demonstrates:
 
 - `rust_binary` build
 - `rust_binary_oci_image` packaging
+- language-agnostic `oci_archive` wrapping of an existing image
 - separate AMD64 OCI and ARM64/Docker-tarball configurations
 - `k8s_oci_deploy` apply/delete targets
 
@@ -55,6 +56,7 @@ Note:
 Key targets:
 
 - `//examples/rust_service:app_push`
+- `//examples/rust_service:app_component_oci_tarball`
 - `//examples/rust_service:app_arm64_image`
 - `//examples/rust_service:app_deploy.apply`
 - `//examples/rust_service:app_deploy.delete`
