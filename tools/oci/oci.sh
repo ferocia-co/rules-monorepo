@@ -12,6 +12,7 @@ Options:
   --scope QUERY      Query scope (default: //...).
   --image NAME       Select a logical image name or target; repeatable.
   --all              Select every discovered image.
+  --repository REPO  Override the repository for every push target; push-only.
   --tag TAG          Add a runtime push tag; repeatable and push-only.
   --jobs N           Maximum Bazel jobs/push processes (default: 4).
   --dry-run          Query normally, but print operations instead of running.
@@ -44,6 +45,7 @@ mode=""
 bazel="bazelisk"
 scope="//..."
 images=""
+repository=""
 tags=""
 select_all=0
 jobs=4
@@ -80,6 +82,16 @@ while [ "$#" -gt 0 ]; do
       tags="$(append_line "$tags" "$2")"
       shift 2
       ;;
+    --repository)
+      [ "$#" -ge 2 ] || die "--repository requires a value"
+      [ -n "$2" ] || die "--repository requires a value"
+      case "$2" in
+        --*) die "--repository requires a value" ;;
+      esac
+      [ -z "$repository" ] || die "--repository may only be specified once"
+      repository="$2"
+      shift 2
+      ;;
     --jobs)
       [ "$#" -ge 2 ] || die "--jobs requires a positive integer"
       jobs="$2"
@@ -106,6 +118,7 @@ done
 [ "$select_all" -eq 0 ] || [ -z "$images" ] || die "--all and --image are mutually exclusive"
 [ "$select_all" -eq 1 ] || [ -n "$images" ] || die "select --all or at least one --image"
 [ "$mode" = "push" ] || [ -z "$tags" ] || die "--tag is only valid in push mode"
+[ "$mode" = "push" ] || [ -z "$repository" ] || die "--repository is only valid in push mode"
 
 case "$scope" in
   //*|@*//*) ;;
@@ -186,6 +199,9 @@ fi
 run_push() {
   push_target="$1"
   set -- run "$push_target" --
+  if [ -n "$repository" ]; then
+    set -- "$@" --repository "$repository"
+  fi
   old_ifs=$IFS
   IFS='
 '

@@ -257,11 +257,13 @@ distroless `cc:nonroot`, `/app`, and `65532:65532`. Choose `architecture` as
 ```bash
 bazel run @rules_monorepo//tools/oci -- build --bazel ./tools/bazel --all
 bazel run @rules_monorepo//tools/oci -- push --bazel ./tools/bazel \
-  --image gateway --tag "$GIT_SHA" --jobs 4
+  --image gateway --repository registry.example.com/team/gateway \
+  --tag "$GIT_SHA" --jobs 4
 ```
 
 The command discovers standard OCI tags, supports selected/all images and
 bounded push concurrency, and offers `--dry-run` for non-mutating validation.
+In push mode, `--repository` overrides the repository for every selected image.
 
 ## Frontend Rules
 
