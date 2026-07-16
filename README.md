@@ -98,22 +98,6 @@ monorepo_tools = use_extension(
 
 use_repo(monorepo_tools, "kubectl_bin", "kustomize_bin")
 
-# Optional if you rely on default image base labels used by binary_oci_image.
-oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
-oci.pull(
-    name = "distroless_cc_linux_amd64",
-    image = "gcr.io/distroless/cc-debian12",
-    tag = "latest-amd64",
-    reproducible = False,
-)
-oci.pull(
-    name = "distroless_cc_linux_arm64",
-    image = "gcr.io/distroless/cc-debian12",
-    tag = "latest-arm64",
-    reproducible = False,
-)
-use_repo(oci, "distroless_cc_linux_amd64", "distroless_cc_linux_arm64")
-
 # Optional: required when using mdbook_docs.
 download_mdbook = use_repo_rule(
     "@rules_monorepo//rules_monorepo_docs:repositories.bzl",
@@ -139,6 +123,7 @@ load("@rules_monorepo//rules_monorepo_docs:defs.bzl", "mdbook_docs")
 ```starlark
 binary_oci_image(
     name = "gateway",
+    architecture = "arm64",
     binary = ":gateway_linux",
     repository = "registry.example.com/trading/gateway",
     repo_tags = ["gateway:local"],
@@ -258,9 +243,25 @@ the `.bazelrc` rustfmt/telemetry policy.
 ## Cargo Audit
 
 `cargo_audit_test` runs `cargo-audit audit --no-fetch` with a pinned RustSec
-advisory DB and isolated `CARGO_HOME`. Callers supply a Bazel-provisioned audit
-executable; the obsolete `crate.spec`/`crate.from_specs` host-tool flow is not
-part of `rules_rs`.
+advisory DB and isolated `CARGO_HOME`. The shared hermetic cargo-audit 0.22.1
+tool supports macOS and Linux on AMD64/ARM64. Pass `cargo_lock` for one test or
+`cargo_locks` for a stable suite over multiple independent workspaces. The
+obsolete `crate.spec`/`crate.from_specs` host-tool flow is not used.
+
+## OCI orchestration
+
+The default Rust/generic binary images use checksum-pinned Debian 12
+distroless `cc:nonroot`, `/app`, and `65532:65532`. Choose `architecture` as
+`amd64` or `arm64`; override `base` only for an intentional exception.
+
+```bash
+bazel run @rules_monorepo//tools/oci -- build --bazel ./tools/bazel --all
+bazel run @rules_monorepo//tools/oci -- push --bazel ./tools/bazel \
+  --image gateway --tag "$GIT_SHA" --jobs 4
+```
+
+The command discovers standard OCI tags, supports selected/all images and
+bounded push concurrency, and offers `--dry-run` for non-mutating validation.
 
 ## Frontend Rules
 
@@ -346,8 +347,10 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on every push and pull r
 
 Checks performed:
 
-- helper script syntax check (`bash -n rules_monorepo/k8s/k8s_apply_helper.sh rules_monorepo_rust/private/cargo_audit_test.sh`)
+- helper script syntax checks for Kubernetes, cargo-audit, and OCI tooling
 - full target graph query (`bazelisk --ignore_all_rc_files query //...`)
+- OCI configuration/CLI tests and hermetic multi-lock cargo-audit tests
+- representative AMD64 and ARM64 distroless image builds
 - analysis build for the end-to-end example (`bazelisk --ignore_all_rc_files build --nobuild //examples/rust_service:app_deploy.apply`)
 - analysis build for the frontend example (`bazelisk --ignore_all_rc_files build --nobuild //examples/svelte_vite_app:bundle //examples/svelte_vite_app:checks //examples/svelte_vite_app:frontend_image`)
 

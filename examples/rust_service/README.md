@@ -11,6 +11,7 @@ This example shows the full pipeline:
 
 - `:app` - Rust binary
 - `:app_image` - OCI image
+- `:app_arm64_image` - ARM64 OCI image with a Docker-format tarball target
 - `:app_push` - registry push target
 - `:app_deploy` - rendered manifest
 - `:app_deploy.apply` - apply flow

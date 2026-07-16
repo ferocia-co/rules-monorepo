@@ -151,11 +151,20 @@ common --repo_env=ASPECT_TOOLS_TELEMETRY=
 
 ## Cargo audit
 
-`cargo_audit_test` still accepts a pinned `cargo_audit` executable target and
-a `rustsec_advisory_db` repository. `rules_rs` deliberately does not provide
-the old `crate.spec` / `crate.from_specs` host-tool workflow, so callers must
-pass a Bazel-provisioned executable explicitly until the shared prebuilt audit
-tool is introduced.
+`cargo_audit_test` defaults to the official checksum-pinned cargo-audit 0.22.1
+binary for the execution platform and a shared pinned RustSec database. The
+prebuilt matrix covers macOS and Linux on AMD64/ARM64, with no host Cargo.
+
+```starlark
+cargo_audit_test(
+    name = "audit",
+    cargo_locks = ["//:Cargo.lock", "//bins/etl:Cargo.lock"],
+)
+```
+
+`cargo_lock` retains the original single-test behavior. `cargo_locks` creates
+one isolated test per lock and a stable suite at the requested `name`.
+`cargo_audit`, `advisory_db`, and `advisory_db_marker` remain overridable.
 
 ## Rust binary to OCI image
 
@@ -164,10 +173,17 @@ load("@rules_monorepo//rules_monorepo_rust:defs.bzl", "rust_binary_oci_image")
 
 rust_binary_oci_image(
     name = "worker",
+    architecture = "arm64",
     binary = ":worker",
     repository = "registry.example.com/example/worker",
+    tarball_format = "docker",
 )
 ```
 
 Generated public targets are `:worker_image`, `:worker_image.digest`,
 `:worker_load`, `:worker_tarball`, and `:worker_push`.
+
+Each invocation creates exactly one platform image. Defaults are AMD64, OCI
+load/tarball output, `/app`, UID/GID `65532:65532`, and the shared pinned
+Debian 12 distroless `cc:nonroot` base. Use `load_format = "docker"` for `fw`;
+use a distinct `tarball_format` when only a component tarball must be Docker.

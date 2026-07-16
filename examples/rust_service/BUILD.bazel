@@ -17,6 +17,17 @@ rust_binary_oci_image(
     repo_tags = ["example-app:local"],
 )
 
+# The second image exercises the ARM64 transition and independent Docker
+# tarball output without creating a multi-architecture index.
+rust_binary_oci_image(
+    name = "app_arm64",
+    architecture = "arm64",
+    binary = ":app",
+    repository = "registry.example.com/example/app-arm64",
+    repo_tags = ["example-app-arm64:local"],
+    tarball_format = "docker",
+)
+
 filegroup(
     name = "manifests",
     srcs = ["k8s/deployment.yaml"],

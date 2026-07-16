@@ -36,6 +36,45 @@ use_repo(rust_toolchains, "default_rust_toolchains")
 register_toolchains("@default_rust_toolchains//:all")
 register_toolchains("@llvm//toolchain:all")
 
+# cargo-audit is selected for the execution platform by //tools/rust. Official
+# v0.22.1 release assets and their GitHub-published checksums cover every host
+# used by the two consumer repositories.
+# Source: https://github.com/rustsec/rustsec/releases/tag/cargo-audit%2Fv0.22.1
+cargo_audit_binary = use_repo_rule(
+    "//rules_monorepo_rust:repositories.bzl",
+    "cargo_audit_binary",
+)
+cargo_audit_binary(
+    name = "cargo_audit_darwin_arm64",
+    sha256 = "04e76e1da25f597bea4814c44faf8aac215838b9f3646e3b6a873d87acd31b73",
+    target = "aarch64-apple-darwin",
+)
+cargo_audit_binary(
+    name = "cargo_audit_darwin_amd64",
+    sha256 = "582d104a2a4bdb127c6bf6d056d89eede40686d11f52e4bc1765132ec99d2fca",
+    target = "x86_64-apple-darwin",
+)
+cargo_audit_binary(
+    name = "cargo_audit_linux_arm64",
+    sha256 = "4c8df835ee484441bd2c8c6bcac28c4ce4b4058ba9e7477cb9e0012fe7769f66",
+    target = "aarch64-unknown-linux-gnu",
+)
+cargo_audit_binary(
+    name = "cargo_audit_linux_amd64",
+    sha256 = "1890badd5f15831a9af4b074399fcd21e6f7c0fe42c84e9254cdffc9f813765c",
+    target = "x86_64-unknown-linux-gnu",
+)
+
+rustsec_advisory_db = use_repo_rule(
+    "//rules_monorepo_rust:repositories.bzl",
+    "rustsec_advisory_db",
+)
+rustsec_advisory_db(
+    name = "rustsec_advisory_db",
+    commit = "86db0b0351854bf22e380345c7ead498a0ddacde",
+    sha256 = "675504a59e549db131a28c0e1b4db3f5d47599ac7491374a340ba12cb536d8d2",
+)
+
 # Development fixture proving that rules_rs follows a Cargo workspace lock and
 # maps first-party path dependencies to their Bazel package default targets.
 example_crates = use_extension(
@@ -120,19 +159,21 @@ npm.npm_translate_lock(
 )
 use_repo(npm, "npm")
 
-# Default OCI bases used by binary_oci_image / rust_binary_oci_image in examples.
-oci = use_extension("@rules_oci//oci:extensions.bzl", "oci", dev_dependency = True)
+# Reproducible default OCI bases owned by rules_monorepo. Labels constructed in
+# this module's Starlark resolve through this repository mapping, so consumers
+# do not need to repeat these pulls in their own MODULE.bazel files.
+# Resolved from gcr.io/distroless/cc-debian12:nonroot on 2026-07-16; its OCI
+# index was sha256:66aa873a4a14fb164aa01296058efd8253744606d72715e45acface073359faa.
+oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
 oci.pull(
     name = "distroless_cc_linux_amd64",
     image = "gcr.io/distroless/cc-debian12",
-    tag = "latest-amd64",
-    reproducible = False,
+    digest = "sha256:471dbca9cad607b9a32c10e9c31fb09ffaeb2d460e0afbff86c27abbc80b1b98",
 )
 oci.pull(
     name = "distroless_cc_linux_arm64",
     image = "gcr.io/distroless/cc-debian12",
-    tag = "latest-arm64",
-    reproducible = False,
+    digest = "sha256:025509536b1e921fb8b0c5443a346a494d07f171d220782f65059cbaccc52aa9",
 )
 oci.pull(
     name = "nginx_unprivileged_linux_amd64",

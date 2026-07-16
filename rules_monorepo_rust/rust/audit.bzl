@@ -1,5 +1,9 @@
 """Cargo audit integration for Bazel tests."""
 
+_DEFAULT_ADVISORY_DB = Label("@rustsec_advisory_db//:all")
+_DEFAULT_ADVISORY_DB_MARKER = Label("@rustsec_advisory_db//:README.md")
+_DEFAULT_CARGO_AUDIT = Label("@rules_monorepo//tools/rust:cargo_audit")
+
 def _to_rlocation_path(ctx, file):
     if file.short_path.startswith("../"):
         return file.short_path[3:]
@@ -91,7 +95,7 @@ _cargo_audit_test = rule(
         "cargo_audit": attr.label(
             doc = "Executable cargo-audit target.",
             executable = True,
-            cfg = "target",
+            cfg = "exec",
         ),
         "cargo_lock": attr.label(
             doc = "Cargo.lock file to audit.",
@@ -113,17 +117,49 @@ _cargo_audit_test = rule(
 
 def cargo_audit_test(
         name,
-        cargo_lock = "//:Cargo.lock",
-        cargo_audit = "@cargo_audit_tools//:audit",
-        advisory_db = "@rustsec_advisory_db//:all",
-        advisory_db_marker = "@rustsec_advisory_db//:README.md",
+        cargo_lock = None,
+        cargo_locks = None,
+        cargo_audit = _DEFAULT_CARGO_AUDIT,
+        advisory_db = _DEFAULT_ADVISORY_DB,
+        advisory_db_marker = _DEFAULT_ADVISORY_DB_MARKER,
         **kwargs):
-    """Defines a Bazel test that runs cargo-audit against a Cargo.lock file."""
-    _cargo_audit_test(
+    """Audits one lock directly or exposes a stable suite for plural locks."""
+    if cargo_lock != None and cargo_locks != None:
+        fail("cargo_lock and cargo_locks are mutually exclusive")
+
+    if cargo_locks == None:
+        _cargo_audit_test(
+            name = name,
+            advisory_db = advisory_db,
+            advisory_db_marker = advisory_db_marker,
+            cargo_audit = cargo_audit,
+            cargo_lock = cargo_lock or "//:Cargo.lock",
+            **kwargs
+        )
+        return
+
+    if len(cargo_locks) == 0:
+        fail("cargo_locks must contain at least one Cargo.lock label")
+
+    tests = []
+    for index, lock in enumerate(cargo_locks):
+        test_name = "{}_lock_{}".format(name, index + 1)
+        _cargo_audit_test(
+            name = test_name,
+            advisory_db = advisory_db,
+            advisory_db_marker = advisory_db_marker,
+            cargo_audit = cargo_audit,
+            cargo_lock = lock,
+            **kwargs
+        )
+        tests.append(":" + test_name)
+
+    suite_kwargs = {}
+    for attr_name in ["tags", "testonly", "visibility"]:
+        if attr_name in kwargs:
+            suite_kwargs[attr_name] = kwargs[attr_name]
+    native.test_suite(
         name = name,
-        advisory_db = advisory_db,
-        advisory_db_marker = advisory_db_marker,
-        cargo_audit = cargo_audit,
-        cargo_lock = cargo_lock,
-        **kwargs
+        tests = tests,
+        **suite_kwargs
     )

@@ -1,7 +1,8 @@
 """Language-agnostic OCI image helpers."""
 
-load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load", "oci_push")
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_image_index", "oci_load", "oci_push")
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
+load(":oci/config.bzl", "binary_oci_target_names", "resolve_binary_oci_config")
 
 def _dedupe_tags(tags):
     deduped = []
@@ -35,13 +36,27 @@ def _target_name(label):
 def binary_oci_image(
         name,
         binary,
-        base = "@distroless_cc_linux_amd64",
+        architecture = "amd64",
+        base = None,
+        binary_name = None,
+        annotations = None,
+        cmd = None,
+        created = None,
         entrypoint = None,
+        env = None,
+        exposed_ports = None,
+        labels = None,
+        load_format = "oci",
         package_dir = "/app",
         repo_tags = None,
         repository = None,
         remote_tags = None,
-        tags = None):
+        tags = None,
+        tarball_format = None,
+        tars = None,
+        user = "65532:65532",
+        volumes = None,
+        workdir = "/app"):
     """Generate an OCI image pipeline from a pre-built Linux binary target.
 
     Generated targets:
@@ -54,45 +69,63 @@ def binary_oci_image(
 
     base_tags = _dedupe_tags(tags)
 
-    layer_amd64 = name + "_layer_amd64"
-    image_amd64 = name + "_image_amd64"
-    image = name + "_image"
-    load_target = name + "_load"
-    push_target = name + "_push"
-
-    if entrypoint == None:
+    if binary_name == None:
         binary_name = _target_name(binary)
-        if binary_name == None:
-            fail("binary must be a label string")
-        clean_package_dir = package_dir.rstrip("/")
-        if clean_package_dir == "":
-            clean_package_dir = "/"
-        entrypoint = [clean_package_dir + "/" + binary_name]
+    if binary_name == None:
+        fail("binary must be a label string")
+
+    config = resolve_binary_oci_config(
+        architecture = architecture,
+        base = base,
+        binary_name = binary_name,
+        entrypoint = entrypoint,
+        load_format = load_format,
+        package_dir = package_dir,
+        tarball_format = tarball_format,
+        user = user,
+        workdir = workdir,
+    )
+
+    layer_arch = name + "_layer_" + architecture
+    image_arch = name + "_image_" + architecture
+    public = binary_oci_target_names(name)
+    image = public.image
+    load_target = public.load_target
+    push_target = public.push
 
     pkg_tar(
-        name = layer_amd64,
-        srcs = [binary],
-        package_dir = package_dir,
+        name = layer_arch,
+        files = {binary: binary_name},
+        package_dir = config.package_dir,
         tags = base_tags,
     )
 
     oci_image(
-        name = image_amd64,
-        base = base,
-        entrypoint = entrypoint,
-        tars = [":" + layer_amd64],
+        name = image_arch,
+        annotations = annotations,
+        base = config.base,
+        cmd = cmd,
+        created = created,
+        entrypoint = config.entrypoint,
+        env = env,
+        exposed_ports = exposed_ports,
+        labels = labels,
+        tars = list(tars or []) + [":" + layer_arch],
+        user = config.user,
+        volumes = volumes,
+        workdir = config.workdir,
         tags = base_tags + ["oci_image_internal"],
     )
 
     native.alias(
         name = image,
-        actual = ":" + image_amd64,
+        actual = ":" + image_arch,
         tags = base_tags + ["oci_image"],
     )
 
     native.filegroup(
         name = image + ".digest",
-        srcs = [":" + image_amd64 + ".digest"],
+        srcs = [":" + image_arch + ".digest"],
         tags = base_tags + ["oci_image"],
     )
 
@@ -100,19 +133,49 @@ def binary_oci_image(
         repo_tags = ["{}:local".format(_default_repo_name(name))]
 
     tarball_files = name + "_tarball_files"
-    tarball_target = name + "_tarball"
+    tarball_target = public.tarball
+
+    # rules_oci requires an image-index input when emitting an OCI archive.
+    # This is a single-entry transport wrapper only; the public image and push
+    # targets remain the architecture-specific image manifest above.
+    oci_transport_image = None
+    if config.load_format == "oci" or config.tarball_format == "oci":
+        oci_transport_image = name + "_transport_{}_oci_index".format(architecture)
+        oci_image_index(
+            name = oci_transport_image,
+            images = [":" + image_arch],
+            tags = base_tags + ["oci_transport_internal"],
+        )
+
+    load_image = ":" + image
+    if config.load_format == "oci":
+        load_image = ":" + oci_transport_image
 
     oci_load(
         name = load_target,
-        image = ":" + image,
-        format = "oci",
+        image = load_image,
+        format = config.load_format,
         repo_tags = repo_tags,
         tags = base_tags + ["oci_load"],
     )
 
+    tarball_load_target = load_target
+    if config.tarball_format != config.load_format:
+        tarball_load_target = name + "_tarball_{}_{}_load".format(architecture, config.tarball_format)
+        tarball_image = ":" + image
+        if config.tarball_format == "oci":
+            tarball_image = ":" + oci_transport_image
+        oci_load(
+            name = tarball_load_target,
+            image = tarball_image,
+            format = config.tarball_format,
+            repo_tags = repo_tags,
+            tags = base_tags + ["oci_tarball_internal"],
+        )
+
     native.filegroup(
         name = tarball_files,
-        srcs = [":" + load_target],
+        srcs = [":" + tarball_load_target],
         output_group = "tarball",
         tags = base_tags + ["oci_tarball"],
     )
