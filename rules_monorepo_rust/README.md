@@ -104,6 +104,11 @@ Public macros are:
 
 They are exported from `@rules_monorepo//rules_monorepo_rust:cargo_defs.bzl`.
 
+Common upstream Rust rules are re-exported by the public `defs.bzl` and
+`cargo_defs.bzl` facades, so consumer BUILD files do not load `@rules_rust`
+directly. This includes the native Rust rules, Clippy/doc/rustfmt rules,
+`cargo_build_script`, and `rust_wasm_bindgen`.
+
 ## Hermetic Cargo and rust-analyzer
 
 Run the Bazel-provisioned Cargo from the workspace directory:

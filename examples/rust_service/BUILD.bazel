@@ -1,6 +1,5 @@
-load("@rules_rust//rust:defs.bzl", "rust_binary")
 load("@rules_monorepo//rules_monorepo:defs.bzl", "k8s_oci_deploy")
-load("@rules_monorepo//rules_monorepo_rust:defs.bzl", "rust_binary_oci_image")
+load("@rules_monorepo//rules_monorepo_rust:defs.bzl", "rust_binary", "rust_binary_oci_image")
 
 package(default_visibility = ["//visibility:public"])
 
