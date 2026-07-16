@@ -18,6 +18,8 @@ The design goal is composability: keep deploy primitives generic, then add langu
 - Render/apply/delete Kubernetes manifests from Bazel targets
 - Run pre-deploy image pushes and rollout checks from Bazel
 - Build Rust binaries for Linux AMD64/ARM64 from non-Linux hosts using transitions
+- Infer external and first-party Rust dependencies directly from Cargo workspaces and `Cargo.lock`
+- Provide Cargo, rustfmt, Clippy, rust-analyzer, and rust-src through Bazel
 - Run Cargo dependency audits against a pinned RustSec advisory DB
 - Build pnpm/Svelte/Vite static frontends and package them as nginx OCI images
 - Build mdBook documentation sites without committing generated HTML/CSS
@@ -166,34 +168,39 @@ rust_binary_oci_image(
 )
 ```
 
-## Rust Cross-Platform Setup
+## Rust Toolchains
 
-If you use `rules_monorepo_rust` transitions (`linux_amd64` / `linux_arm64`), configure Rust and C/C++ cross-toolchains in your `MODULE.bazel`.
-
-See `rules_monorepo_rust/README.md` for a full copy-paste snippet.
+`rules_monorepo` uses `hermeticbuild/rules_rs` and centrally registers Rust
+1.97.0 plus LLVM toolchains. Consumers do not install or register a second
+Rust distribution. See `rules_monorepo_rust/README.md` for Cargo workspace,
+developer-tooling, and cross-platform details.
 
 ## Cargo-Inferred Rust Dependencies
 
 To avoid duplicating Rust crate deps in both `Cargo.toml` and BUILD targets, use the Cargo-inferred API in `rules_monorepo_rust:cargo_defs.bzl`.
 
-1. Configure crate_universe in `MODULE.bazel`:
+1. Configure the re-exported `rules_rs` Cargo extension in `MODULE.bazel`:
 
 ```starlark
 crate = use_extension("@rules_monorepo//rules_monorepo_rust:extensions.bzl", "crate")
 crate.from_cargo(
-    name = "cargo_dep",
-    cargo_lockfile = "//:Cargo.lock",
-    manifests = [
-        "//path/to/crate:Cargo.toml",
+    name = "crates",
+    cargo_lock = "//:Cargo.lock",
+    cargo_toml = "//:Cargo.toml",
+    platform_triples = [
+        "aarch64-apple-darwin",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
     ],
 )
-use_repo(crate, "cargo_dep")
+use_repo(crate, "crates")
 ```
 
 2. Use Cargo-inferred wrappers in BUILD files:
 
 ```starlark
-load("@cargo_dep//:defs.bzl", "aliases", "all_crate_deps")
+load("@crates//:defs.bzl", "aliases", "all_crate_deps")
 load("@rules_monorepo//rules_monorepo_rust:cargo_defs.bzl", "cargo_package", "cargo_rust_binary", "rust_binary_oci_image")
 
 CARGO = cargo_package(
@@ -215,9 +222,11 @@ rust_binary_oci_image(
 )
 ```
 
-By default, wrappers infer deps for `native.package_name()`. If your manifest path differs from package name, pass `package_name = "path/to/crate"`.
-If you use a crate_universe repo name other than `cargo_dep`, update the `load("@cargo_dep//:defs.bzl", ...)` label accordingly.
-Existing callers may continue passing `all_crate_deps_fn = all_crate_deps` directly instead of using `cargo_package(...)`.
+By default, wrappers infer deps for `native.package_name()`. If a manifest path
+differs from the Bazel package, pass `package_name` explicitly. First-party path
+dependencies are inferred too; their Bazel package must expose a default target
+named after the directory. Existing callers may continue passing
+`all_crate_deps_fn` directly.
 
 Supported inferred wrappers:
 
@@ -232,16 +241,26 @@ Lint/doc/format integration:
 - use `rust_clippy`, `rustfmt_test`, `rust_doc`, and `rust_doc_test` against targets created by `cargo_rust_*`
 - dedicated cargo-aware lint/doc wrappers are not yet provided
 
-Feature/optional dependency note:
+Use `bazel_deps` only for dependencies that do not exist in Cargo metadata.
 
-- if a target imports an optional crate directly (for example `tracing`) and inference does not include it, add it with `cargo_deps`
+## Hermetic Rust developer tools
+
+```bash
+bazel run @rules_monorepo//tools/rust:cargo -- fmt
+bazel run @rules_monorepo//tools/rust:rust_analyzer_setup -- --per-package-workspaces vscode
+```
+
+The rust-analyzer setup target also supports `neovim`, `helix`, and `print`.
+Per-package mode avoids indexing an entire large monorepo; omit the flag for a
+full workspace. See `rules_monorepo_rust/README.md` for editor trade-offs and
+the `.bazelrc` rustfmt/telemetry policy.
 
 ## Cargo Audit
 
 `cargo_audit_test` runs `cargo-audit audit --no-fetch` with a pinned RustSec
-advisory DB and isolated `CARGO_HOME`. See `rules_monorepo_rust/README.md` for
-the required `cargo_audit_tools` crate_universe setup and
-`rustsec_advisory_db` repository rule.
+advisory DB and isolated `CARGO_HOME`. Callers supply a Bazel-provisioned audit
+executable; the obsolete `crate.spec`/`crate.from_specs` host-tool flow is not
+part of `rules_rs`.
 
 ## Frontend Rules
 

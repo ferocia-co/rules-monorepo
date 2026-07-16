@@ -1,0 +1,2 @@
+common --repo_env=ASPECT_TOOLS_TELEMETRY=
+build --@rules_rust//rust/settings:rustfmt.toml=//:rustfmt.toml

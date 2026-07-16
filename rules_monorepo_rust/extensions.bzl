@@ -1,9 +1,5 @@
-"""Rust module extensions for rules_monorepo.
+"""Rust module extensions re-exported from rules_rs."""
 
-This keeps the public extension label under rules_monorepo while preserving
-standard rules_rust crate_universe behavior.
-"""
-
-load("@rules_rust//crate_universe:extension.bzl", _crate = "crate")
+load("@rules_rs//rs:extensions.bzl", _crate = "crate")
 
 crate = _crate

@@ -1,10 +1,4 @@
-"""Cargo-inferred public API for rules_monorepo_rust.
-
-Load `aliases` and `all_crate_deps` from your crate_universe repository in
-BUILD files, wrap them once with `cargo_package(...)`, and pass that `cargo`
-context to the `cargo_rust_*` macros. Direct `all_crate_deps_fn` usage remains
-supported for existing callers.
-"""
+"""Cargo-inferred public API backed by rules_rs Cargo workspaces."""
 
 load(":rust/audit.bzl", _cargo_audit_test = "cargo_audit_test")
 load(":rust/cargo.bzl", _cargo_aliases = "cargo_aliases", _cargo_all_crate_deps = "cargo_all_crate_deps", _cargo_package = "cargo_package", _cargo_proc_macro_deps = "cargo_proc_macro_deps", _cargo_rust_binary = "cargo_rust_binary", _cargo_rust_library = "cargo_rust_library", _cargo_rust_proc_macro = "cargo_rust_proc_macro", _cargo_rust_test = "cargo_rust_test", _cargo_rust_test_suite = "cargo_rust_test_suite")

@@ -6,14 +6,54 @@ module(
 
 bazel_dep(name = "aspect_bazel_lib", version = "2.22.5")
 bazel_dep(name = "aspect_rules_js", version = "3.0.3")
-bazel_dep(name = "bazel_skylib", version = "1.8.2")
-bazel_dep(name = "platforms", version = "1.0.0")
+bazel_dep(name = "bazel_skylib", version = "1.9.0")
+bazel_dep(name = "llvm", version = "0.8.9")
+bazel_dep(name = "platforms", version = "1.1.0")
 bazel_dep(name = "rules_oci", version = "2.2.7")
 bazel_dep(name = "rules_nodejs", version = "6.7.4")
 bazel_dep(name = "rules_pkg", version = "1.0.1")
-bazel_dep(name = "rules_rust", version = "0.63.0")
+bazel_dep(name = "rules_rs", version = "0.0.96")
 bazel_dep(name = "rules_shell", version = "0.6.1")
-bazel_dep(name = "toolchains_llvm", version = "1.6.0", dev_dependency = True)
+
+# rules_rs is the single Rust distribution and rules_rust facade used by this
+# module and its consumers. The compatibility patch only restores the
+# rust-analyzer setup binaries that exist in the pinned rules_rust source but
+# are not exported by rules_rs v0.0.96.
+rules_rust = use_extension("@rules_rs//rs:rules_rust.bzl", "rules_rust")
+rules_rust.patch(
+    patches = ["//patches:rules_rust_rust_analyzer_setup.patch"],
+    strip = 1,
+)
+use_repo(rules_rust, "rules_rust")
+
+rust_toolchains = use_extension("@rules_rs//rs/toolchains:module_extension.bzl", "toolchains")
+rust_toolchains.toolchain(
+    edition = "2024",
+    version = "1.97.0",
+)
+use_repo(rust_toolchains, "default_rust_toolchains")
+
+register_toolchains("@default_rust_toolchains//:all")
+register_toolchains("@llvm//toolchain:all")
+
+# Development fixture proving that rules_rs follows a Cargo workspace lock and
+# maps first-party path dependencies to their Bazel package default targets.
+example_crates = use_extension(
+    "//rules_monorepo_rust:extensions.bzl",
+    "crate",
+    dev_dependency = True,
+)
+example_crates.from_cargo(
+    name = "example_crates",
+    cargo_lock = "//examples/cargo_workspace:Cargo.lock",
+    cargo_toml = "//examples/cargo_workspace:Cargo.toml",
+    platform_triples = [
+        "aarch64-apple-darwin",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-unknown-linux-gnu",
+    ],
+)
+use_repo(example_crates, "example_crates")
 
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
@@ -37,54 +77,6 @@ filegroup(
         "https://playwright.download.prss.microsoft.com/dbazure/download/playwright/builds/chromium/1200/chromium-headless-shell-linux.zip",
         "https://cdn.playwright.dev/builds/chromium/1200/chromium-headless-shell-linux.zip",
     ],
-    dev_dependency = True,
-)
-
-# Development-only toolchain setup for this repository's examples.
-# Marked as dev_dependency so consumers of @rules_monorepo don't inherit this.
-rust = use_extension("@rules_rust//rust:extensions.bzl", "rust", dev_dependency = True)
-rust.toolchain(
-    extra_target_triples = [
-        "aarch64-unknown-linux-gnu",
-        "x86_64-unknown-linux-gnu",
-    ],
-    versions = ["1.91.0"],
-)
-use_repo(rust, "rust_toolchains")
-
-llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm", dev_dependency = True)
-llvm.toolchain(
-    name = "llvm_toolchain",
-    llvm_versions = {"": "latest:>=17.0.0,<20"},
-)
-llvm.sysroot(
-    name = "llvm_toolchain",
-    label = "@org_chromium_sysroot_linux_x64//sysroot",
-    targets = ["linux-x86_64"],
-)
-llvm.sysroot(
-    name = "llvm_toolchain",
-    label = "@org_chromium_sysroot_linux_arm64//sysroot",
-    targets = ["linux-aarch64"],
-)
-use_repo(llvm, "llvm_toolchain", "llvm_toolchain_llvm")
-register_toolchains(
-    "@llvm_toolchain//:cc-toolchain-x86_64-linux",
-    "@llvm_toolchain//:cc-toolchain-aarch64-linux",
-    dev_dependency = True,
-)
-
-sysroot = use_repo_rule("@toolchains_llvm//toolchain:sysroot.bzl", "sysroot")
-sysroot(
-    name = "org_chromium_sysroot_linux_x64",
-    sha256 = "93761371443acf55f429cab6628d5b423bf9a07a3445d2376b4ba52cb35a6d99",
-    urls = ["https://commondatastorage.googleapis.com/chrome-linux-sysroot/toolchain/812a1cdc57400e9e0b3def67d41403b8bb764d2d/debian_sid_amd64_sysroot.tar.xz"],
-    dev_dependency = True,
-)
-sysroot(
-    name = "org_chromium_sysroot_linux_arm64",
-    sha256 = "38b11a17004bf9f5245f1de1c20d45b389b9dab18ce564ad73b44b6655c61850",
-    urls = ["https://commondatastorage.googleapis.com/chrome-linux-sysroot/toolchain/f421bdbada4278feede4bae1ec8be91299e8938b/debian_sid_arm64_sysroot.tar.xz"],
     dev_dependency = True,
 )
 

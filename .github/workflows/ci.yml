@@ -30,10 +30,16 @@ jobs:
         run: bash -n rules_monorepo/k8s/k8s_apply_helper.sh rules_monorepo_rust/private/cargo_audit_test.sh
 
       - name: Query Target Graph
-        run: bazelisk --ignore_all_rc_files query //...
+        run: bazelisk query //...
+
+      - name: Test Cargo API
+        run: bazelisk test //rules_monorepo_rust:cargo_api_tests
+
+      - name: Build Cargo Workspace And Developer Tools
+        run: bazelisk build //examples/cargo_workspace/app //tools/rust:cargo //tools/rust:rust_analyzer_setup
 
       - name: Analyze Rust Deploy Example
-        run: bazelisk --ignore_all_rc_files build --nobuild //examples/rust_service:app_deploy.apply
+        run: bazelisk build --nobuild //examples/rust_service:app_deploy.apply
 
       - name: Analyze Frontend Example
-        run: bazelisk --ignore_all_rc_files build --nobuild //examples/svelte_vite_app:bundle //examples/svelte_vite_app:checks //examples/svelte_vite_app:frontend_image
+        run: bazelisk build --nobuild //examples/svelte_vite_app:bundle //examples/svelte_vite_app:checks //examples/svelte_vite_app:frontend_image

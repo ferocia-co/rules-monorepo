@@ -1,0 +1,13 @@
+package(default_visibility = ["//visibility:public"])
+
+exports_files(["README.md"])
+
+alias(
+    name = "cargo",
+    actual = "@rules_rust//tools/upstream_wrapper:cargo",
+)
+
+alias(
+    name = "rust_analyzer_setup",
+    actual = "@rules_rust//tools/rust_analyzer:setup",
+)
