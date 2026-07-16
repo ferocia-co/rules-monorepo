@@ -185,12 +185,14 @@ use_repo(crate, "crates")
 2. Use Cargo-inferred wrappers in BUILD files:
 
 ```starlark
+load("@crates//:data.bzl", "DEP_DATA")
 load("@crates//:defs.bzl", "aliases", "all_crate_deps")
 load("@rules_monorepo//rules_monorepo_rust:cargo_defs.bzl", "cargo_package", "cargo_rust_binary", "rust_binary_oci_image")
 
 CARGO = cargo_package(
     aliases_fn = aliases,
     all_crate_deps_fn = all_crate_deps,
+    dep_data = DEP_DATA,
 )
 
 cargo_rust_binary(
@@ -212,6 +214,10 @@ differs from the Bazel package, pass `package_name` explicitly. First-party path
 dependencies are inferred too; their Bazel package must expose a default target
 named after the directory. Existing callers may continue passing
 `all_crate_deps_fn` directly.
+
+Passing `DEP_DATA` keeps renamed normal, dev, build, and target-specific crates
+on the same selectors as their dependency edges. Normal library/binary targets
+exclude dev-only aliases, while tests include them.
 
 Supported inferred wrappers:
 

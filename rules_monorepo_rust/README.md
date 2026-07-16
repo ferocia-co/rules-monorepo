@@ -49,12 +49,14 @@ Create one small adapter per Cargo workspace:
 
 ```starlark
 # //tools/rust:deps.bzl
+load("@crates//:data.bzl", "DEP_DATA")
 load("@crates//:defs.bzl", "aliases", "all_crate_deps")
 load("@rules_monorepo//rules_monorepo_rust:cargo_defs.bzl", "cargo_package")
 
 CARGO = cargo_package(
     aliases_fn = aliases,
     all_crate_deps_fn = all_crate_deps,
+    dep_data = DEP_DATA,
 )
 ```
 
@@ -86,9 +88,19 @@ cargo_rust_test(
 
 The macros infer normal, target-specific, development, proc-macro, and
 first-party path dependencies. `cargo_rust_test` includes Cargo dev dependencies
-by default. Use `bazel_deps` only for generated files or other non-Cargo Bazel
-edges. Existing `deps`, `cargo_deps`, `cargo_macro_deps`, and direct
-`all_crate_deps_fn` arguments remain accepted for source compatibility.
+by default; libraries, binaries, and proc macros do not. Loading `DEP_DATA` once
+also filters the generated aggregate aliases by those dependency kinds. Its
+platform-specific aliases remain in matching `select()` branches, preserving
+macOS/Linux cross-analysis without leaking platform-only or dev-only edges.
+Use `bazel_deps` only for generated files or other non-Cargo Bazel edges.
+Existing `deps`, `cargo_deps`, `cargo_macro_deps`, and direct
+`all_crate_deps_fn` arguments remain accepted for source compatibility. An old
+adapter without `DEP_DATA` still works, but retains rules_rs's aggregate alias
+behavior until migrated.
+
+For a direct build-script rule, select its Cargo aliases and dependencies with
+`cargo_aliases(cargo = CARGO, normal = False, build = True)` and
+`cargo_all_crate_deps(cargo = CARGO, normal = False, build = True)`.
 
 First-party path dependencies resolve to their Bazel package default label.
 Therefore a depended-on Cargo library at `//libs/orderbook` must expose its
@@ -146,8 +158,9 @@ between packages and reverse dependents are not indexed. Flycheck uses Bazel
 `rustc`, not Clippy; repository `just lint` commands remain the authoritative
 lint entry point.
 
-The setup command writes editor configuration and a local
-`.rules_rust_analyzer` launcher/cache tree. Consumers should ignore those
+The setup command writes editor configuration and a workspace-root
+`.rules_rust_analyzer` launcher/cache tree, including when VSCode settings are
+written below `.vscode` or to a custom path. Consumers should ignore those
 generated files and wrap this target with an editor-explicit `just dev-setup`
 recipe rather than installing editors or extensions.
 

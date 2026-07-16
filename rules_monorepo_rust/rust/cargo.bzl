@@ -10,11 +10,17 @@ load("//rules_monorepo_rust:rust/upstream.bzl", "rust_binary", "rust_library", "
 def cargo_package(
         aliases_fn = None,
         all_crate_deps_fn = None,
+        dep_data = None,
         package_name = ""):
-    """Binds a rules_rs-generated dependency repository to a BUILD package."""
+    """Binds a rules_rs-generated dependency repository to a BUILD package.
+
+    Pass the generated `DEP_DATA` map to make aliases follow the same Cargo
+    dependency-kind and platform selectors as `all_crate_deps`.
+    """
     return struct(
         aliases_fn = aliases_fn,
         all_crate_deps_fn = all_crate_deps_fn,
+        dep_data = dep_data,
         package_name = package_name,
     )
 
@@ -44,7 +50,18 @@ def _with_manifest_compile_data(kwargs, include_manifest_compile_data):
         out["compile_data"] = _merged(out.pop("compile_data", []), native.glob(["Cargo.toml"]))
     return out
 
-def _with_inferred_aliases(kwargs, aliases_fn, cargo, package_name):
+def cargo_target_kwargs_for_testing(
+        kwargs,
+        aliases_fn,
+        cargo,
+        package_name,
+        include_dev_deps,
+        include_dev_proc_macro_deps):
+    """Adds inferred aliases unless a target supplied them explicitly.
+
+    This helper is public only so the Starlark unit test can verify explicit
+    target attributes remain authoritative.
+    """
     out = dict(kwargs)
     if out.get("aliases") != None:
         return out
@@ -53,6 +70,8 @@ def _with_inferred_aliases(kwargs, aliases_fn, cargo, package_name):
         aliases_fn = aliases_fn,
         cargo = cargo,
         package_name = package_name,
+        normal = True,
+        normal_dev = include_dev_deps or include_dev_proc_macro_deps,
     )
     if inferred != None:
         out["aliases"] = inferred
@@ -60,14 +79,101 @@ def _with_inferred_aliases(kwargs, aliases_fn, cargo, package_name):
 
 def cargo_aliases(
         aliases_fn = None,
+        dep_data = None,
         package_name = "",
         cargo = None,
+        normal = True,
+        normal_dev = False,
+        build = False,
+        build_proc_macro = False,
+        proc_macro = False,
+        proc_macro_dev = False,
         **_legacy_selectors):
-    """Returns the rules_rs alias map for the selected Cargo package."""
+    """Returns aliases matching the selected Cargo dependency kinds.
+
+    rules_rs currently generates one aggregate alias map. When generated
+    `DEP_DATA` is available, this filters that map against the selected normal,
+    dev, or build dependency sets and retains platform conditions as `select`
+    branches. Adapters without `DEP_DATA` keep the legacy aggregate behavior.
+
+    `proc_macro`, `proc_macro_dev`, and `build_proc_macro` fold into the
+    corresponding ordinary dependency sets because rules_rs already includes
+    proc macros there.
+    """
+    resolved_dep_data = _resolved_fn(dep_data, cargo, "dep_data")
+    if resolved_dep_data != None:
+        specs = cargo_alias_specs_for_testing(
+            dep_data = resolved_dep_data,
+            package_name = _resolved_package_name(package_name, cargo),
+            normal = normal or proc_macro,
+            normal_dev = normal_dev or proc_macro_dev,
+            build = build or build_proc_macro,
+        )
+        if not specs.by_platform:
+            return specs.common
+
+        branches = {"//conditions:default": specs.common}
+        for platform, platform_aliases in sorted(specs.by_platform.items()):
+            branch = dict(specs.common)
+            branch.update(platform_aliases)
+            branches[platform] = branch
+        return select(branches)
+
     resolved = _resolved_fn(aliases_fn, cargo, "aliases_fn")
     if resolved == None:
         return None
     return resolved(package_name = _resolved_package_name(package_name, cargo))
+
+def cargo_alias_specs_for_testing(
+        dep_data,
+        package_name,
+        normal = True,
+        normal_dev = False,
+        build = False):
+    """Builds common and per-platform alias maps from rules_rs `DEP_DATA`.
+
+    This helper is public only so the Starlark unit test can inspect the
+    structure before `select()` makes it opaque.
+    """
+    package_dep_data = dep_data.get(package_name)
+    if not package_dep_data:
+        return struct(common = {}, by_platform = {})
+
+    kinds = []
+    if normal_dev:
+        kinds.append("dev_deps")
+    if build:
+        kinds.append("build_deps")
+    if normal or not kinds:
+        kinds.append("deps")
+
+    common_labels = {}
+    labels_by_platform = {}
+    for kind in kinds:
+        for dep in package_dep_data.get(kind, []):
+            common_labels[dep] = True
+
+        for platform, deps in package_dep_data.get(kind + "_by_platform", {}).items():
+            platform_labels = labels_by_platform.setdefault(platform, {})
+            for dep in deps:
+                platform_labels[dep] = True
+
+    all_aliases = package_dep_data.get("aliases", {})
+    common = {}
+    for dep in common_labels:
+        if dep in all_aliases:
+            common[dep] = all_aliases[dep]
+
+    by_platform = {}
+    for platform, labels in labels_by_platform.items():
+        platform_aliases = {}
+        for dep in labels:
+            if dep not in common and dep in all_aliases:
+                platform_aliases[dep] = all_aliases[dep]
+        if platform_aliases:
+            by_platform[platform] = platform_aliases
+
+    return struct(common = common, by_platform = by_platform)
 
 def cargo_all_crate_deps(
         all_crate_deps_fn = None,
@@ -156,11 +262,13 @@ def _rust_target(
             cargo_deps,
         ),
         proc_macro_deps = _merged(proc_macro_deps, cargo_macro_deps),
-        **_with_inferred_aliases(
+        **cargo_target_kwargs_for_testing(
             _with_manifest_compile_data(kwargs, include_manifest_compile_data),
             aliases_fn = aliases_fn,
             cargo = cargo,
             package_name = package_name,
+            include_dev_deps = include_dev_deps,
+            include_dev_proc_macro_deps = include_dev_proc_macro_deps,
         )
     )
 

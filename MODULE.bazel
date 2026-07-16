@@ -38,9 +38,9 @@ osx.frameworks(names = [
 ])
 
 # rules_rs is the single Rust distribution and rules_rust facade used by this
-# module and its consumers. The compatibility patch only restores the
-# rust-analyzer setup binaries that exist in the pinned rules_rust source but
-# are not exported by rules_rs v0.0.96.
+# module and its consumers. The compatibility patch restores rust-analyzer
+# setup binaries that are not exported by rules_rs v0.0.96 and keeps VSCode's
+# workspace-relative launcher paths aligned with their install directory.
 rules_rust = use_extension("@rules_rs//rs:rules_rust.bzl", "rules_rust")
 rules_rust.patch(
     patches = ["//patches:rules_rust_rust_analyzer_setup.patch"],
