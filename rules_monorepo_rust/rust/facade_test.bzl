@@ -16,6 +16,8 @@ load(
     "rust_wasm_bindgen_test",
     "rust_wasm_bindgen_toolchain",
     "rustfmt_test",
+    "transitioned_binary",
+    "transitioned_binary_arm64",
 )
 load(":extensions.bzl", rust_wasm_bindgen_extension = "rust_wasm_bindgen")
 
@@ -38,6 +40,8 @@ def rust_facade_load_test():
         rust_wasm_bindgen_test,
         rust_wasm_bindgen_toolchain,
         rustfmt_test,
+        transitioned_binary,
+        transitioned_binary_arm64,
     ]
     native.filegroup(
         name = "rust_facade_load_test",

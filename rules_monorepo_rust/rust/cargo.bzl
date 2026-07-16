@@ -5,7 +5,7 @@ Consumers bind one rules_rs-generated `aliases` / `all_crate_deps` pair with
 including workspace path dependencies and proc macros, from Cargo.lock.
 """
 
-load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_library", "rust_proc_macro", "rust_test")
+load("//rules_monorepo_rust:rust/upstream.bzl", "rust_binary", "rust_library", "rust_proc_macro", "rust_test")
 
 def cargo_package(
         aliases_fn = None,

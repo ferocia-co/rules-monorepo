@@ -9,7 +9,7 @@ It provides:
 
 - Rust 1.97.0, Cargo, rustfmt, Clippy, rust-src, and rust-analyzer from Bazel
 - Cargo-inferred library, binary, proc-macro, and test macros
-- Linux AMD64/ARM64 transitions
+- Linux AMD64/ARM64 compatibility macros using rules_rs's canonical platforms
 - Rust binary-to-OCI helpers
 - pinned RustSec audit integration
 
@@ -106,8 +106,21 @@ They are exported from `@rules_monorepo//rules_monorepo_rust:cargo_defs.bzl`.
 
 Common upstream Rust rules are re-exported by the public `defs.bzl` and
 `cargo_defs.bzl` facades, so consumer BUILD files do not load `@rules_rust`
-directly. This includes the native Rust rules, Clippy/doc/rustfmt rules,
-`cargo_build_script`, and `rust_wasm_bindgen`.
+directly. Binary, library, proc-macro, test, and build-script APIs come through
+rules_rs's official facades. Clippy/doc/rustfmt, test-suite, and wasm-bindgen
+rule APIs remain direct compatibility exports for rules_rs v0.0.96.
+
+`transitioned_binary` and `transitioned_binary_arm64` are thin compatibility
+macros over Aspect's `platform_transition_binary`. They target rules_rs's
+`x86_64-unknown-linux-gnu` and `aarch64-unknown-linux-gnu` platforms and retain
+the historical target-name executable basename by default. Pass `basename` to
+override it.
+
+The `rust_wasm_bindgen` module extension exported from `extensions.bzl` is the
+rules_rs-provided extension. Consumers may instantiate and register it when its
+CLI matches their crate version; projects that need another CLI keep an
+explicit compatible toolchain. rules_monorepo does not globally select a
+version because the wasm-bindgen protocol is version-sensitive.
 
 ## Hermetic Cargo and rust-analyzer
 

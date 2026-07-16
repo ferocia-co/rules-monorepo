@@ -4,6 +4,28 @@ load("@rules_oci//oci:defs.bzl", "oci_image", "oci_image_index", "oci_load", "oc
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 load(":oci/config.bzl", "binary_oci_target_names", "resolve_binary_oci_config")
 
+def _executable_file_impl(ctx):
+    executable = ctx.attr.binary[DefaultInfo].files_to_run.executable
+    if executable == None:
+        fail("binary must provide an executable", attr = "binary")
+
+    # platform_transition_binary intentionally forwards both the original
+    # executable and its renamed symlink in DefaultInfo.files. pkg_tar's
+    # label-to-path map accepts exactly one file, so expose only the executable
+    # selected by FilesToRunProvider at this packaging boundary.
+    return [DefaultInfo(files = depset([executable]))]
+
+_executable_file = rule(
+    implementation = _executable_file_impl,
+    attrs = {
+        "binary": attr.label(
+            cfg = "target",
+            executable = True,
+            mandatory = True,
+        ),
+    },
+)
+
 def _dedupe_tags(tags):
     deduped = []
     for tag in list(tags or []) + ["manual", "oci"]:
@@ -88,14 +110,21 @@ def binary_oci_image(
 
     layer_arch = name + "_layer_" + architecture
     image_arch = name + "_image_" + architecture
+    binary_file = name + "_binary_file_" + architecture
     public = binary_oci_target_names(name)
     image = public.image
     load_target = public.load_target
     push_target = public.push
 
+    _executable_file(
+        name = binary_file,
+        binary = binary,
+        tags = base_tags + ["oci_binary_internal"],
+    )
+
     pkg_tar(
         name = layer_arch,
-        files = {binary: binary_name},
+        files = {":" + binary_file: binary_name},
         package_dir = config.package_dir,
         tags = base_tags,
     )

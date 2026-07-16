@@ -1,66 +1,42 @@
-"""Platform transition rules for building Linux binaries on any host."""
+"""Compatibility macros for building Linux binaries on any host."""
 
-_LINUX_AMD64_PLATFORM = str(Label(":linux_amd64"))
-_LINUX_ARM64_PLATFORM = str(Label(":linux_arm64"))
+load("@aspect_bazel_lib//lib:transitions.bzl", "platform_transition_binary")
 
-def _linux_amd64_transition_impl(settings, attr):
-    _ = settings, attr
-    return {"//command_line_option:platforms": _LINUX_AMD64_PLATFORM}
+_LINUX_AMD64_PLATFORM = "@rules_rs//rs/platforms:x86_64-unknown-linux-gnu"
+_LINUX_ARM64_PLATFORM = "@rules_rs//rs/platforms:aarch64-unknown-linux-gnu"
 
-linux_amd64_transition = transition(
-    implementation = _linux_amd64_transition_impl,
-    inputs = [],
-    outputs = ["//command_line_option:platforms"],
-)
+def _transitioned_binary(name, binary, target_platform, basename, **kwargs):
+    # The previous local rule named its executable after the transitioned
+    # target. Preserve that contract: consumers use the basename as the path
+    # inside OCI images, while Aspect's rule otherwise defaults to the source
+    # binary's basename.
+    if basename == None:
+        basename = name
 
-def _linux_arm64_transition_impl(settings, attr):
-    _ = settings, attr
-    return {"//command_line_option:platforms": _LINUX_ARM64_PLATFORM}
+    platform_transition_binary(
+        name = name,
+        basename = basename,
+        binary = binary,
+        target_platform = target_platform,
+        **kwargs
+    )
 
-linux_arm64_transition = transition(
-    implementation = _linux_arm64_transition_impl,
-    inputs = [],
-    outputs = ["//command_line_option:platforms"],
-)
+def transitioned_binary(name, binary, basename = None, **kwargs):
+    """Build `binary` for rules_rs's canonical Linux AMD64 platform."""
+    _transitioned_binary(
+        name = name,
+        basename = basename,
+        binary = binary,
+        target_platform = _LINUX_AMD64_PLATFORM,
+        **kwargs
+    )
 
-def _transitioned_binary_impl(ctx):
-    src = ctx.attr.binary[0][DefaultInfo].files_to_run.executable
-    out = ctx.actions.declare_file(ctx.label.name)
-    ctx.actions.symlink(output = out, target_file = src)
-    return [
-        DefaultInfo(
-            files = depset([out]),
-            executable = out,
-            runfiles = ctx.runfiles(files = [out]),
-        ),
-    ]
-
-transitioned_binary = rule(
-    implementation = _transitioned_binary_impl,
-    attrs = {
-        "binary": attr.label(
-            mandatory = True,
-            cfg = linux_amd64_transition,
-            executable = True,
-        ),
-        "_allowlist_function_transition": attr.label(
-            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
-        ),
-    },
-    executable = True,
-)
-
-transitioned_binary_arm64 = rule(
-    implementation = _transitioned_binary_impl,
-    attrs = {
-        "binary": attr.label(
-            mandatory = True,
-            cfg = linux_arm64_transition,
-            executable = True,
-        ),
-        "_allowlist_function_transition": attr.label(
-            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
-        ),
-    },
-    executable = True,
-)
+def transitioned_binary_arm64(name, binary, basename = None, **kwargs):
+    """Build `binary` for rules_rs's canonical Linux ARM64 platform."""
+    _transitioned_binary(
+        name = name,
+        basename = basename,
+        binary = binary,
+        target_platform = _LINUX_ARM64_PLATFORM,
+        **kwargs
+    )

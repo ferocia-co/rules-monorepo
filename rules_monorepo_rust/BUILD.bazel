@@ -19,21 +19,5 @@ exports_files([
     "rust/upstream.bzl",
 ])
 
-platform(
-    name = "linux_amd64",
-    constraint_values = [
-        "@platforms//os:linux",
-        "@platforms//cpu:x86_64",
-    ],
-)
-
 cargo_api_tests()
 rust_facade_load_test()
-
-platform(
-    name = "linux_arm64",
-    constraint_values = [
-        "@platforms//os:linux",
-        "@platforms//cpu:arm64",
-    ],
-)
