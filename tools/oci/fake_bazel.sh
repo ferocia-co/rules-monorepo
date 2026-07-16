@@ -14,7 +14,12 @@ cat <<'EOF'
 //services/beta:beta_image
 //services/beta:beta_tarball
 //services/beta:beta_push
+//services/foo:foo_image
+//services/foo:foo_image_image
+//services/foo:foo_oci_image
 //services/price-crank:price-crank_oci_image
 //services/price-crank:price-crank_oci_tarball
 //services/price-crank:price-crank_oci_push
+//services/shared-a:shared_oci_image
+//services/shared-b:shared_oci_image
 EOF

@@ -63,7 +63,10 @@ def oci_archive(
         repo_tags = None,
         tags = None,
         tarball_format = None):
-    """Wrap an existing OCI image with stable local-load and tarball targets.
+    """Wrap one existing OCI image manifest with local-load/tarball targets.
+
+    `image` must label a single OCI image manifest target, such as `oci_image`;
+    multi-platform `oci_image_index` targets are not accepted.
 
     Generated targets:
       - <name>_load

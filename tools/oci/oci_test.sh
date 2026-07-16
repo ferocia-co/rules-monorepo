@@ -41,6 +41,30 @@ exact_label_output="$(
 )"
 grep -Fx -- "+ ${fake_bazel} build --compilation_mode=opt --jobs=4 //services/price-crank:price-crank_oci_image" <<<"${exact_label_output}"
 
+precedence_output="$(
+  BUILD_WORKSPACE_DIRECTORY="${workspace}" "${oci}" build \
+    --bazel "${fake_bazel}" \
+    --image foo \
+    --dry-run
+)"
+grep -Fx -- "+ ${fake_bazel} build --compilation_mode=opt --jobs=4 //services/foo:foo_image" <<<"${precedence_output}"
+
+generated_name_precedence_output="$(
+  BUILD_WORKSPACE_DIRECTORY="${workspace}" "${oci}" build \
+    --bazel "${fake_bazel}" \
+    --image foo_image \
+    --dry-run
+)"
+grep -Fx -- "+ ${fake_bazel} build --compilation_mode=opt --jobs=4 //services/foo:foo_image" <<<"${generated_name_precedence_output}"
+
+collision_exact_label_output="$(
+  BUILD_WORKSPACE_DIRECTORY="${workspace}" "${oci}" build \
+    --bazel "${fake_bazel}" \
+    --image //services/shared-a:shared_oci_image \
+    --dry-run
+)"
+grep -Fx -- "+ ${fake_bazel} build --compilation_mode=opt --jobs=4 //services/shared-a:shared_oci_image" <<<"${collision_exact_label_output}"
+
 tarball_output="$(
   BUILD_WORKSPACE_DIRECTORY="${workspace}" "${oci}" tarball \
     --bazel "${fake_bazel}" \
@@ -105,5 +129,11 @@ assert_fails_with "oci: --repository is only valid in push mode" \
   build --bazel "${fake_bazel}" --all --repository registry.example.com/team/images
 assert_fails_with "oci: --compilation-mode must be one of fastbuild, dbg, or opt" \
   build --bazel "${fake_bazel}" --all --compilation-mode release
+assert_fails_with "oci: ambiguous image selection for build: shared_oci_image matches multiple targets at generated target-name tier" \
+  build --bazel "${fake_bazel}" --image shared_oci_image --dry-run
+assert_fails_with "oci: ambiguous image selection for build: shared_oci matches multiple targets at logical-name tier" \
+  build --bazel "${fake_bazel}" --image shared_oci --dry-run
+assert_fails_with "oci: ambiguous image selection for build: shared matches multiple targets at conventional shorthand tier" \
+  build --bazel "${fake_bazel}" --image shared --dry-run
 
 "${oci}" --help >/dev/null

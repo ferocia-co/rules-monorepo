@@ -44,7 +44,7 @@ Demonstrates:
 
 - `rust_binary` build
 - `rust_binary_oci_image` packaging
-- language-agnostic `oci_archive` wrapping of an existing image
+- language-agnostic `oci_archive` wrapping of one image manifest, not an index
 - separate AMD64 OCI and ARM64/Docker-tarball configurations
 - `k8s_oci_deploy` apply/delete targets
 

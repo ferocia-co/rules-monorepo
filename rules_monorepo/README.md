@@ -99,8 +99,8 @@ binary_oci_image(
 
 ## oci_archive
 
-Adds local-load and tarball targets around an existing OCI image without
-rebuilding or changing that image:
+Adds local-load and tarball targets around one existing OCI image manifest
+without rebuilding or changing that image:
 
 ```starlark
 oci_archive(
@@ -114,7 +114,9 @@ oci_archive(
 The generated targets are `<name>_load` and `<name>_tarball`. `format` accepts
 `oci` (default) or `docker`; `tarball_format` may differ when needed. Pass
 `output` to choose the tar filename and `tags` to add tags alongside the
-standard `manual`, `oci`, `oci_load`, and `oci_tarball` tags.
+standard `manual`, `oci`, `oci_load`, and `oci_tarball` tags. `image` must label
+a single manifest target such as `oci_image`; multi-platform `oci_image_index`
+targets are not supported.
 
 ## k8s_apply
 

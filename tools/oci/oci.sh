@@ -10,7 +10,9 @@ Discover and operate on rules_monorepo OCI targets by their standard tags.
 Options:
   --bazel PATH       Call this repository Bazel wrapper (default: bazelisk).
   --scope QUERY      Query scope (default: //...).
-  --image NAME       Select a logical image name or target; repeatable.
+  --image NAME       Select an image; repeatable. Resolution order is full label,
+                     generated target, logical name, then stripped `_oci` shorthand.
+                     Ambiguous names fail instead of selecting many.
   --all              Select every discovered image.
   --repository REPO  Override the repository for every push target; push-only.
   --tag TAG          Add a runtime push tag; repeatable and push-only.
@@ -181,7 +183,10 @@ else
   IFS='
 '
   for requested in $images; do
-    found=0
+    full_label_matches=""
+    target_name_matches=""
+    logical_name_matches=""
+    conventional_name_matches=""
     for target in $discovered; do
       target_name=${target##*:}
       logical_name=${target_name%"$suffix"}
@@ -189,16 +194,47 @@ else
       case "$conventional_name" in
         *_oci) conventional_name=${conventional_name%_oci} ;;
       esac
-      case "$requested" in
-        "$target"|"$target_name"|"$logical_name"|"$conventional_name")
-          if ! printf '%s\n' "$selected" | grep -Fqx "$target"; then
-            selected="$(append_line "$selected" "$target")"
-          fi
-          found=1
-          ;;
-      esac
+
+      if [ "$requested" = "$target" ]; then
+        full_label_matches="$(append_line "$full_label_matches" "$target")"
+      fi
+      if [ "$requested" = "$target_name" ]; then
+        target_name_matches="$(append_line "$target_name_matches" "$target")"
+      fi
+      if [ "$requested" = "$logical_name" ]; then
+        logical_name_matches="$(append_line "$logical_name_matches" "$target")"
+      fi
+      if [ "$requested" = "$conventional_name" ]; then
+        conventional_name_matches="$(append_line "$conventional_name_matches" "$target")"
+      fi
     done
-    [ "$found" -eq 1 ] || die "image not found for ${mode}: ${requested}"
+
+    match_tier=""
+    matches=""
+    if [ -n "$full_label_matches" ]; then
+      match_tier="full-label"
+      matches=$full_label_matches
+    elif [ -n "$target_name_matches" ]; then
+      match_tier="generated target-name"
+      matches=$target_name_matches
+    elif [ -n "$logical_name_matches" ]; then
+      match_tier="logical-name"
+      matches=$logical_name_matches
+    elif [ -n "$conventional_name_matches" ]; then
+      match_tier="conventional shorthand"
+      matches=$conventional_name_matches
+    else
+      die "image not found for ${mode}: ${requested}"
+    fi
+
+    case "$matches" in
+      *'
+'*)
+        display_matches=$(printf '%s' "$matches" | tr '\n' ' ')
+        die "ambiguous image selection for ${mode}: ${requested} matches multiple targets at ${match_tier} tier: ${display_matches}"
+        ;;
+    esac
+    selected="$(append_unique_line "$selected" "$matches")"
   done
   IFS=$old_ifs
 fi

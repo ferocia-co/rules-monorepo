@@ -16,8 +16,8 @@ rust_binary_oci_image(
     repo_tags = ["example-app:local"],
 )
 
-# A language-agnostic Docker archive around an already-built image. Component
-# test callers use the same shape without rebuilding the application image.
+# A language-agnostic Docker archive around one already-built image manifest,
+# not an image index. Component tests reuse it without rebuilding the application.
 oci_archive(
     name = "app_component_oci",
     image = ":app_image",

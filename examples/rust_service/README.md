@@ -11,7 +11,7 @@ This example shows the full pipeline:
 
 - `:app` - Rust binary
 - `:app_image` - OCI image
-- `:app_component_oci_load` - Docker loader for the existing app image
+- `:app_component_oci_load` - Docker loader for the single-manifest app image
 - `:app_component_oci_tarball` - Docker archive tagged `example-app-component:local`
 - `:app_arm64_image` - ARM64 OCI image with a Docker-format tarball target
 - `:app_push` - registry push target

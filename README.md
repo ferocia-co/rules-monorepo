@@ -142,7 +142,9 @@ oci_archive(
 ```
 
 This creates `gateway_component_oci_load` and
-`gateway_component_oci_tarball` without rebuilding the existing image.
+`gateway_component_oci_tarball` without rebuilding the existing image. The
+`image` label must provide one OCI image manifest (such as an `oci_image`), not
+a multi-platform `oci_image_index`.
 
 ### Kubernetes deploy
 
@@ -284,9 +286,11 @@ bazel run @rules_monorepo//tools/oci -- push --bazel ./tools/bazel \
 The command discovers standard OCI tags, supports selected/all images and
 bounded push concurrency, and offers `--dry-run` for non-mutating validation.
 Build, tarball, and push operations use optimized binaries by default. A
-conventional trailing `_oci` is optional during selection, and repeated runtime
-tags are deduplicated. In push mode, `--repository` overrides the repository
-for every selected image.
+conventional trailing `_oci` is optional during selection. Resolution prefers
+an exact full label, generated target name, logical name, then the stripped
+`_oci` shorthand; ambiguity at the first matching tier is an error. Repeated
+runtime tags are deduplicated. In push mode, `--repository` overrides the
+repository for every selected image.
 
 ## Frontend Rules
 
