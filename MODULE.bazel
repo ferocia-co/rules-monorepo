@@ -1,6 +1,6 @@
 module(
     name = "rules_monorepo",
-    version = "2026.07.17.2",
+    version = "2026.07.17.3",
     compatibility_level = 1,
 )
 
@@ -12,6 +12,8 @@ bazel_dep(name = "platforms", version = "1.1.0")
 bazel_dep(name = "rules_oci", version = "2.2.7")
 bazel_dep(name = "rules_nodejs", version = "6.7.4")
 bazel_dep(name = "rules_pkg", version = "1.0.1")
+# This is the shared default. A consumer root may select a newer rules_rs or a
+# compatible fork with Bazel's single_version/archive/git/local_path overrides.
 bazel_dep(name = "rules_rs", version = "0.0.96")
 bazel_dep(name = "rules_shell", version = "0.6.1")
 
@@ -37,10 +39,11 @@ osx.frameworks(names = [
     "SystemConfiguration",
 ])
 
-# rules_rs is the single Rust distribution and rules_rust facade used by this
-# module and its consumers. The compatibility patch restores rust-analyzer
-# setup binaries that are not exported by rules_rs v0.0.96 and keeps VSCode's
-# workspace-relative launcher paths aligned with their install directory.
+# The compatibility patch restores rust-analyzer setup binaries that are not
+# exported by rules_rs v0.0.96 and keeps VSCode's workspace-relative launcher
+# paths aligned with their install directory. A consumer replacing rules_rs
+# with an incompatible rules_rust can replace this generated repository through
+# rules_rs's documented override_repo escape hatch.
 rules_rust = use_extension("@rules_rs//rs:rules_rust.bzl", "rules_rust")
 rules_rust.patch(
     patches = ["//tools/patches:rules_rust_rust_analyzer_setup.patch"],
@@ -48,6 +51,9 @@ rules_rust.patch(
 )
 use_repo(rules_rust, "rules_rust")
 
+# This fallback keeps consumers zero-config. A consumer can own its Rust version
+# by registering a uniquely named toolchain from this canonical extension; root
+# registrations take priority and also select the Cargo used by developer tools.
 rust_toolchains = use_extension("@rules_rs//rs/toolchains:module_extension.bzl", "toolchains")
 rust_toolchains.toolchain(
     edition = "2024",

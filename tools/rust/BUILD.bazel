@@ -3,7 +3,6 @@ load(":executable_file.bzl", "executable_file")
 package(default_visibility = ["//visibility:public"])
 
 exports_files([
-    "README.md",
     "executable_file.bzl",
 ])
 
@@ -39,16 +38,21 @@ config_setting(
     ],
 )
 
+# Escape hatch for a consumer's repo-native Justfile. Normal build, test,
+# formatting, and lint workflows should remain Bazel target recipes.
 alias(
     name = "cargo",
     actual = "@rules_rust//tools/upstream_wrapper:cargo",
 )
 
+# Generates editor configuration using the Bazel dependency graph and hermetic
+# rust-analyzer. Consumers should request per-package workspaces for large repos.
 alias(
     name = "rust_analyzer_setup",
     actual = "@rules_rust//tools/rust_analyzer:setup",
 )
 
+# Selects the checksum-pinned RustSec scanner for the execution platform.
 executable_file(
     name = "cargo_audit",
     src = select({

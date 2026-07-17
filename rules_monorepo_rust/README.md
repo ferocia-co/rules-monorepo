@@ -15,11 +15,10 @@ It provides:
 
 ## Configure a Cargo workspace
 
-`rules_monorepo` registers the Rust and LLVM toolchains. A consumer only
-declares each independent Cargo workspace:
+Declare each independent Cargo workspace:
 
 ```starlark
-bazel_dep(name = "rules_monorepo", version = "2026.07.17.2")
+bazel_dep(name = "rules_monorepo", version = "2026.07.17.3")
 
 crate = use_extension(
     "@rules_rs//rs:extensions.bzl",
@@ -133,36 +132,6 @@ rules_rs-provided extension. Consumers may instantiate and register it when its
 CLI matches their crate version; projects that need another CLI keep an
 explicit compatible toolchain. rules_monorepo does not globally select a
 version because the wasm-bindgen protocol is version-sensitive.
-
-## Hermetic Cargo and rust-analyzer
-
-Run the Bazel-provisioned Cargo from the workspace directory:
-
-```bash
-bazel run @rules_monorepo//tools/rust:cargo -- fmt
-bazel run @rules_monorepo//tools/rust:cargo -- metadata --locked
-```
-
-Configure rust-analyzer without installing Rust locally:
-
-```bash
-bazel run @rules_monorepo//tools/rust:rust_analyzer_setup -- --per-package-workspaces vscode
-bazel run @rules_monorepo//tools/rust:rust_analyzer_setup -- --per-package-workspaces neovim
-bazel run @rules_monorepo//tools/rust:rust_analyzer_setup -- --per-package-workspaces helix
-bazel run @rules_monorepo//tools/rust:rust_analyzer_setup -- --per-package-workspaces print
-```
-
-Omit `--per-package-workspaces` for full-workspace indexing. Package splitting
-keeps very large workspaces responsive, but rust-analyzer reloads when moving
-between packages and reverse dependents are not indexed. Flycheck uses Bazel
-`rustc`, not Clippy; repository `just lint` commands remain the authoritative
-lint entry point.
-
-The setup command writes editor configuration and a workspace-root
-`.rules_rust_analyzer` launcher/cache tree, including when VSCode settings are
-written below `.vscode` or to a custom path. Consumers should ignore those
-generated files and wrap this target with an editor-explicit `just dev-setup`
-recipe rather than installing editors or extensions.
 
 ## Formatting and telemetry
 

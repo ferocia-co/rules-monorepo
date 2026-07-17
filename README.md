@@ -41,7 +41,7 @@ The design goal is composability: keep deploy primitives generic, then add langu
 Use this for reproducible pins without requiring `git` on the runner.
 
 ```starlark
-bazel_dep(name = "rules_monorepo", version = "2026.07.17.2")
+bazel_dep(name = "rules_monorepo", version = "2026.07.17.3")
 
 archive_override(
     module_name = "rules_monorepo",
@@ -60,7 +60,7 @@ Notes:
 Use this while commit history is being rewritten frequently and you do not want to recalculate archive integrity every time.
 
 ```starlark
-bazel_dep(name = "rules_monorepo", version = "2026.07.17.2")
+bazel_dep(name = "rules_monorepo", version = "2026.07.17.3")
 
 git_override(
     module_name = "rules_monorepo",
@@ -76,7 +76,7 @@ Notes:
 ### Option C: `local_path_override` (local development only)
 
 ```starlark
-bazel_dep(name = "rules_monorepo", version = "2026.07.17.2")
+bazel_dep(name = "rules_monorepo", version = "2026.07.17.3")
 local_path_override(module_name = "rules_monorepo", path = "../rules-monorepo")
 ```
 
@@ -169,13 +169,6 @@ rust_binary_oci_image(
 )
 ```
 
-## Rust Toolchains
-
-`rules_monorepo` uses `hermeticbuild/rules_rs` and centrally registers Rust
-1.97.0 plus LLVM toolchains. Consumers do not install or register a second
-Rust distribution. See `rules_monorepo_rust/README.md` for Cargo workspace,
-developer-tooling, and cross-platform details.
-
 ## Cargo-Inferred Rust Dependencies
 
 To avoid duplicating Rust crate deps in both `Cargo.toml` and BUILD targets, use the Cargo-inferred API in `rules_monorepo_rust:cargo_defs.bzl`.
@@ -249,18 +242,6 @@ Lint/doc/format integration:
 - dedicated cargo-aware lint/doc wrappers are not yet provided
 
 Use `bazel_deps` only for dependencies that do not exist in Cargo metadata.
-
-## Hermetic Rust developer tools
-
-```bash
-bazel run @rules_monorepo//tools/rust:cargo -- fmt
-bazel run @rules_monorepo//tools/rust:rust_analyzer_setup -- --per-package-workspaces vscode
-```
-
-The rust-analyzer setup target also supports `neovim`, `helix`, and `print`.
-Per-package mode avoids indexing an entire large monorepo; omit the flag for a
-full workspace. See `rules_monorepo_rust/README.md` for editor trade-offs and
-the `.bazelrc` rustfmt/telemetry policy.
 
 ## Cargo Audit
 
