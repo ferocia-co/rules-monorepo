@@ -7,7 +7,7 @@ This directory contains copy-pasteable examples for `rules_monorepo`.
 In a consumer repo `MODULE.bazel`:
 
 ```starlark
-bazel_dep(name = "rules_monorepo", version = "2026.07.16.1")
+bazel_dep(name = "rules_monorepo", version = "2026.07.17.1")
 
 archive_override(
     module_name = "rules_monorepo",
