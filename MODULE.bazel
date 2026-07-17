@@ -1,6 +1,6 @@
 module(
     name = "rules_monorepo",
-    version = "2026.07.17.3",
+    version = "2026.07.17.4",
     compatibility_level = 1,
 )
 
@@ -39,14 +39,16 @@ osx.frameworks(names = [
     "SystemConfiguration",
 ])
 
-# The compatibility patch restores rust-analyzer setup binaries that are not
-# exported by rules_rs v0.0.96 and keeps VSCode's workspace-relative launcher
-# paths aligned with their install directory. A consumer replacing rules_rs
-# with an incompatible rules_rust can replace this generated repository through
-# rules_rs's documented override_repo escape hatch.
+# These compatibility patches restore the rust-analyzer setup binaries missing
+# from rules_rs v0.0.96 and keep rustc from forwarding redundant C++ runtime
+# driver selectors. A consumer replacing rules_rs with an incompatible
+# rules_rust can replace this generated repository through override_repo.
 rules_rust = use_extension("@rules_rs//rs:rules_rust.bzl", "rules_rust")
 rules_rust.patch(
-    patches = ["//tools/patches:rules_rust_rust_analyzer_setup.patch"],
+    patches = [
+        "//tools/patches:rules_rust_drop_redundant_runtime_selectors.patch",
+        "//tools/patches:rules_rust_rust_analyzer_setup.patch",
+    ],
     strip = 1,
 )
 use_repo(rules_rust, "rules_rust")

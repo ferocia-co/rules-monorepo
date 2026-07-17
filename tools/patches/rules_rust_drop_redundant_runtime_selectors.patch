@@ -1,0 +1,18 @@
+diff --git a/rust/private/rustc.bzl b/rust/private/rustc.bzl
+--- a/rust/private/rustc.bzl
++++ b/rust/private/rustc.bzl
+@@ -1415,6 +1415,14 @@ def construct_arguments(
+ 
+             rustc_flags.add(ld, format = "--codegen=linker=%s")
+ 
++            # rustc passes -nodefaultlibs and receives the runtime archives
++            # explicitly, so Clang cannot use these CC driver selectors.
++            link_args = [
++                arg
++                for arg in link_args
++                if arg not in ("-rtlib=compiler-rt", "--unwindlib=none")
++            ]
++
+             # Split link args into individual "--codegen=link-arg=" flags to handle nested spaces.
+             # Additional context: https://github.com/rust-lang/rust/pull/36574
+             rustc_flags.add_all(link_args, format_each = "--codegen=link-arg=%s")
