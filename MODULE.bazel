@@ -1,6 +1,6 @@
 module(
     name = "rules_monorepo",
-    version = "2026.07.17.1",
+    version = "2026.07.17.2",
     compatibility_level = 1,
 )
 

@@ -239,7 +239,7 @@ else
   IFS=$old_ifs
 fi
 
-if [ "$mode" = "build" ] || [ "$mode" = "tarball" ]; then
+build_selected_targets() {
   set -- build "--compilation_mode=$compilation_mode" "--jobs=$jobs"
   old_ifs=$IFS
   IFS='
@@ -253,6 +253,11 @@ if [ "$mode" = "build" ] || [ "$mode" = "tarball" ]; then
   else
     "$bazel" "$@"
   fi
+}
+
+build_selected_targets
+
+if [ "$mode" = "build" ] || [ "$mode" = "tarball" ]; then
   exit 0
 fi
 

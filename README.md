@@ -41,7 +41,7 @@ The design goal is composability: keep deploy primitives generic, then add langu
 Use this for reproducible pins without requiring `git` on the runner.
 
 ```starlark
-bazel_dep(name = "rules_monorepo", version = "2026.07.17.1")
+bazel_dep(name = "rules_monorepo", version = "2026.07.17.2")
 
 archive_override(
     module_name = "rules_monorepo",
@@ -60,7 +60,7 @@ Notes:
 Use this while commit history is being rewritten frequently and you do not want to recalculate archive integrity every time.
 
 ```starlark
-bazel_dep(name = "rules_monorepo", version = "2026.07.17.1")
+bazel_dep(name = "rules_monorepo", version = "2026.07.17.2")
 
 git_override(
     module_name = "rules_monorepo",
@@ -76,7 +76,7 @@ Notes:
 ### Option C: `local_path_override` (local development only)
 
 ```starlark
-bazel_dep(name = "rules_monorepo", version = "2026.07.17.1")
+bazel_dep(name = "rules_monorepo", version = "2026.07.17.2")
 local_path_override(module_name = "rules_monorepo", path = "../rules-monorepo")
 ```
 
@@ -180,10 +180,10 @@ developer-tooling, and cross-platform details.
 
 To avoid duplicating Rust crate deps in both `Cargo.toml` and BUILD targets, use the Cargo-inferred API in `rules_monorepo_rust:cargo_defs.bzl`.
 
-1. Configure the re-exported `rules_rs` Cargo extension in `MODULE.bazel`:
+1. Configure the canonical `rules_rs` Cargo extension in `MODULE.bazel`:
 
 ```starlark
-crate = use_extension("@rules_monorepo//rules_monorepo_rust:extensions.bzl", "crate")
+crate = use_extension("@rules_rs//rs:extensions.bzl", "crate")
 crate.from_cargo(
     name = "crates",
     cargo_lock = "//:Cargo.lock",

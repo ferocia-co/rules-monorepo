@@ -26,7 +26,7 @@ Rules/macros:
 Install from GitHub (no BCR required) and pin a commit. `archive_override` is recommended for consumers/CI:
 
 ```starlark
-bazel_dep(name = "rules_monorepo", version = "2026.07.17.1")
+bazel_dep(name = "rules_monorepo", version = "2026.07.17.2")
 
 archive_override(
     module_name = "rules_monorepo",

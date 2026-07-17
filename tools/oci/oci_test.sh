@@ -80,7 +80,13 @@ single_push_output="$(
     --repository registry.example.com/team/alpha \
     --dry-run
 )"
-grep -Fx -- "+ ${fake_bazel} run --compilation_mode=opt //services/alpha:alpha_push -- --repository registry.example.com/team/alpha" <<<"${single_push_output}"
+expected_single_push_output="+ ${fake_bazel} build --compilation_mode=opt --jobs=4 //services/alpha:alpha_push
++ ${fake_bazel} run --compilation_mode=opt //services/alpha:alpha_push -- --repository registry.example.com/team/alpha"
+if [[ "${single_push_output}" != "${expected_single_push_output}" ]]; then
+  echo "single push did not group-build before running:" >&2
+  printf '%s\n' "${single_push_output}" >&2
+  exit 1
+fi
 
 push_output="$(
   BUILD_WORKSPACE_DIRECTORY="${workspace}" "${oci}" push \
@@ -95,9 +101,31 @@ push_output="$(
     --jobs 2 \
     --dry-run
 )"
-grep -Fx -- "+ ${fake_bazel} run --compilation_mode=opt //services/alpha:alpha_push -- --repository registry.example.com/team/images --tag release-sha --tag -candidate --tag latest" <<<"${push_output}"
-grep -Fx -- "+ ${fake_bazel} run --compilation_mode=opt //services/beta:beta_push -- --repository registry.example.com/team/images --tag release-sha --tag -candidate --tag latest" <<<"${push_output}"
-grep -Fx -- "+ ${fake_bazel} run --compilation_mode=opt //services/price-crank:price-crank_oci_push -- --repository registry.example.com/team/images --tag release-sha --tag -candidate --tag latest" <<<"${push_output}"
+expected_push_output="+ ${fake_bazel} build --compilation_mode=opt --jobs=2 //services/alpha:alpha_push //services/beta:beta_push //services/price-crank:price-crank_oci_push
++ ${fake_bazel} run --compilation_mode=opt //services/alpha:alpha_push -- --repository registry.example.com/team/images --tag release-sha --tag -candidate --tag latest
++ ${fake_bazel} run --compilation_mode=opt //services/beta:beta_push -- --repository registry.example.com/team/images --tag release-sha --tag -candidate --tag latest
++ ${fake_bazel} run --compilation_mode=opt //services/price-crank:price-crank_oci_push -- --repository registry.example.com/team/images --tag release-sha --tag -candidate --tag latest"
+if [[ "${push_output}" != "${expected_push_output}" ]]; then
+  echo "push-all dry run did not preserve grouped-build and push ordering:" >&2
+  printf '%s\n' "${push_output}" >&2
+  exit 1
+fi
+
+prebuild_failure_log="${TEST_TMPDIR}/prebuild-failure.log"
+if BUILD_WORKSPACE_DIRECTORY="${workspace}" \
+  FAKE_BAZEL_FAIL_BUILD=1 \
+  FAKE_BAZEL_LOG="${prebuild_failure_log}" \
+  "${oci}" push \
+    --bazel "${fake_bazel}" \
+    --image alpha >/dev/null 2>&1; then
+  echo "push unexpectedly succeeded after grouped build failure" >&2
+  exit 1
+fi
+grep -Fxq -- "build --compilation_mode=opt --jobs=4 //services/alpha:alpha_push" "${prebuild_failure_log}"
+if grep -q '^run ' "${prebuild_failure_log}"; then
+  echo "push ran after grouped build failure" >&2
+  exit 1
+fi
 
 if BUILD_WORKSPACE_DIRECTORY="${workspace}" "${oci}" build \
   --bazel "${fake_bazel}" --image missing --dry-run >/dev/null 2>&1; then

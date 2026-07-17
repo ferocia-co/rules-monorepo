@@ -21,5 +21,7 @@ packages. Build, tarball, and push operations use optimized (`opt`) binaries by
 default; `--compilation-mode fastbuild|dbg|opt` provides an explicit override.
 In push mode, `--repository` overrides the repository for every selected
 target, while repeated `--tag` values are deduplicated in first-seen order.
-Pushes use at most `--jobs` concurrent Bazel processes. Use `--dry-run` to
-validate selection and command construction without loading or pushing images.
+Before any registry mutation, push mode builds all selected `oci_push` targets
+together and stops if that build fails. Pushes then use at most `--jobs`
+concurrent Bazel processes. Use `--dry-run` to validate selection and command
+construction without loading or pushing images.
