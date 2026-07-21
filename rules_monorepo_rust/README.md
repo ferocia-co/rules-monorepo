@@ -18,7 +18,7 @@ It provides:
 Declare each independent Cargo workspace:
 
 ```starlark
-bazel_dep(name = "rules_monorepo", version = "2026.07.17.4")
+bazel_dep(name = "rules_monorepo", version = "2026.07.21.1")
 
 crate = use_extension(
     "@rules_rs//rs:extensions.bzl",
