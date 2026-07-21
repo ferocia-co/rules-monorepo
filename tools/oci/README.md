@@ -9,7 +9,7 @@ bazel run @rules_monorepo//tools/oci -- build --bazel ./tools/bazel --all
 bazel run @rules_monorepo//tools/oci -- tarball --bazel ./tools/bazel --image worker
 bazel run @rules_monorepo//tools/oci -- push --bazel ./tools/bazel \
   --image worker --repository registry.example.com/team/worker \
-  --tag "$GIT_SHA" --tag latest --jobs 4
+  --tag "$GIT_SHA" --tag latest --bazel-jobs 16 --push-jobs 4
 ```
 
 `--scope` limits discovery to a query scope. `--image` may be repeated and
@@ -22,6 +22,9 @@ default; `--compilation-mode fastbuild|dbg|opt` provides an explicit override.
 In push mode, `--repository` overrides the repository for every selected
 target, while repeated `--tag` values are deduplicated in first-seen order.
 Before any registry mutation, push mode builds all selected `oci_push` targets
-together and stops if that build fails. Pushes then use at most `--jobs`
-concurrent Bazel processes. Use `--dry-run` to validate selection and command
-construction without loading or pushing images.
+together and stops if that build fails. `--bazel-jobs` bounds that batch build,
+while `--push-jobs` independently bounds concurrent Bazel push processes. Both
+default to 4. The legacy `--jobs` option sets both values for backwards
+compatibility; an explicit split option wins regardless of argument order. Use
+`--dry-run` to validate selection and command construction without loading or
+pushing images.

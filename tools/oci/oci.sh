@@ -16,7 +16,10 @@ Options:
   --all              Select every discovered image.
   --repository REPO  Override the repository for every push target; push-only.
   --tag TAG          Add a runtime push tag; repeatable and push-only.
-  --jobs N           Maximum Bazel jobs/push processes (default: 4).
+  --jobs N           Set both Bazel jobs and push processes (default: 4).
+                     Explicit split flags take precedence over this legacy alias.
+  --bazel-jobs N     Maximum Bazel build jobs (default: 4).
+  --push-jobs N      Maximum concurrent push processes (default: 4); push-only.
   --compilation-mode MODE
                      Bazel compilation mode: fastbuild, dbg, or opt (default: opt).
   --dry-run          Query normally, but print operations instead of running.
@@ -60,7 +63,10 @@ images=""
 repository=""
 tags=""
 select_all=0
-jobs=4
+legacy_jobs=4
+bazel_jobs=""
+push_jobs=""
+push_jobs_set=0
 compilation_mode="opt"
 dry_run=0
 
@@ -107,10 +113,27 @@ while [ "$#" -gt 0 ]; do
       ;;
     --jobs)
       [ "$#" -ge 2 ] || die "--jobs requires a positive integer"
-      jobs="$2"
-      case "$jobs" in
+      legacy_jobs="$2"
+      case "$legacy_jobs" in
         ''|*[!0-9]*|0) die "--jobs requires a positive integer" ;;
       esac
+      shift 2
+      ;;
+    --bazel-jobs)
+      [ "$#" -ge 2 ] || die "--bazel-jobs requires a positive integer"
+      bazel_jobs="$2"
+      case "$bazel_jobs" in
+        ''|*[!0-9]*|0) die "--bazel-jobs requires a positive integer" ;;
+      esac
+      shift 2
+      ;;
+    --push-jobs)
+      [ "$#" -ge 2 ] || die "--push-jobs requires a positive integer"
+      push_jobs="$2"
+      case "$push_jobs" in
+        ''|*[!0-9]*|0) die "--push-jobs requires a positive integer" ;;
+      esac
+      push_jobs_set=1
       shift 2
       ;;
     --compilation-mode)
@@ -136,11 +159,15 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
+bazel_jobs=${bazel_jobs:-$legacy_jobs}
+push_jobs=${push_jobs:-$legacy_jobs}
+
 [ -n "$mode" ] || die "a build, tarball, or push mode is required"
 [ "$select_all" -eq 0 ] || [ -z "$images" ] || die "--all and --image are mutually exclusive"
 [ "$select_all" -eq 1 ] || [ -n "$images" ] || die "select --all or at least one --image"
 [ "$mode" = "push" ] || [ -z "$tags" ] || die "--tag is only valid in push mode"
 [ "$mode" = "push" ] || [ -z "$repository" ] || die "--repository is only valid in push mode"
+[ "$mode" = "push" ] || [ "$push_jobs_set" -eq 0 ] || die "--push-jobs is only valid in push mode"
 
 case "$scope" in
   //*|@*//*) ;;
@@ -240,7 +267,7 @@ else
 fi
 
 build_selected_targets() {
-  set -- build "--compilation_mode=$compilation_mode" "--jobs=$jobs"
+  set -- build "--compilation_mode=$compilation_mode" "--jobs=$bazel_jobs"
   old_ifs=$IFS
   IFS='
 '
@@ -307,7 +334,7 @@ for target in $selected; do
     pids="$pids $pid"
   fi
   running=$((running + 1))
-  if [ "$running" -ge "$jobs" ]; then
+  if [ "$running" -ge "$push_jobs" ]; then
     first=${pids%% *}
     if ! wait "$first"; then
       status=1
