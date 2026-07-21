@@ -11,6 +11,7 @@ case "${1:-}" in
 //services/beta:beta_image
 //services/beta:beta_tarball
 //services/beta:beta_push
+//services/gamma:gamma_push
 //services/foo:foo_image
 //services/foo:foo_image_image
 //services/foo:foo_oci_image
@@ -29,6 +30,12 @@ EOF
     printf '%s\n' "$*" >> "$FAKE_BAZEL_LOG"
     if [ "$1" = "build" ] && [ "${FAKE_BAZEL_FAIL_BUILD:-0}" = "1" ]; then
       exit 42
+    fi
+    if [ "$1" = "run" ] && [ -n "${FAKE_BAZEL_RUN_BARRIER_DIR:-}" ]; then
+      : > "${FAKE_BAZEL_RUN_BARRIER_DIR}/$$.started"
+      while [ ! -e "${FAKE_BAZEL_RUN_BARRIER_DIR}/release" ]; do
+        sleep 0.05
+      done
     fi
     ;;
   *)
