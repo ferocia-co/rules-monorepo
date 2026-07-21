@@ -2,8 +2,15 @@
 bazel-*
 MODULE.bazel.lock
 
+# JavaScript package managers
+node_modules/
+
 # Editor/OS
 .DS_Store
+.rules_rust_analyzer/
+.helix/.rules_rust_analyzer/
+.vscode/.rules_rust_analyzer/
+.vscode/settings.json
 
 # jj internals
 .jj/

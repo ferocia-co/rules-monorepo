@@ -1,0 +1,5 @@
+[book]
+authors = ["Ferocia"]
+language = "en"
+src = "src"
+title = "rules_monorepo_docs smoke"

@@ -1,0 +1,18 @@
+load(":defs.bzl", "mdbook_docs")
+
+package(default_visibility = ["//visibility:public"])
+
+exports_files([
+    "README.md",
+    "defs.bzl",
+    "mdbook.bzl",
+    "repositories.bzl",
+])
+
+mdbook_docs(
+    name = "smoke_book",
+    book = "smoke/book.toml",
+    mdbook = "@mdbook_bin//:mdbook",
+    srcs = glob(["smoke/src/**"]),
+    visibility = ["//visibility:private"],
+)

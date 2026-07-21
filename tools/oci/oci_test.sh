@@ -1,0 +1,167 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+workspace="${TEST_TMPDIR}/workspace"
+mkdir -p "${workspace}"
+oci="${RUNFILES_DIR}/${TEST_WORKSPACE}/tools/oci/oci"
+fake_bazel="${RUNFILES_DIR}/${TEST_WORKSPACE}/tools/oci/fake_bazel"
+
+build_output="$(
+  BUILD_WORKSPACE_DIRECTORY="${workspace}" "${oci}" build \
+    --bazel "${fake_bazel}" \
+    --scope //services/... \
+    --image alpha \
+    --jobs 2 \
+    --dry-run
+)"
+grep -Fx -- "+ ${fake_bazel} build --compilation_mode=opt --jobs=2 //services/alpha:alpha_image" <<<"${build_output}"
+
+debug_build_output="$(
+  BUILD_WORKSPACE_DIRECTORY="${workspace}" "${oci}" build \
+    --bazel "${fake_bazel}" \
+    --image alpha_image \
+    --compilation-mode dbg \
+    --dry-run
+)"
+grep -Fx -- "+ ${fake_bazel} build --compilation_mode=dbg --jobs=4 //services/alpha:alpha_image" <<<"${debug_build_output}"
+
+conventional_name_output="$(
+  BUILD_WORKSPACE_DIRECTORY="${workspace}" "${oci}" build \
+    --bazel "${fake_bazel}" \
+    --image price-crank \
+    --dry-run
+)"
+grep -Fx -- "+ ${fake_bazel} build --compilation_mode=opt --jobs=4 //services/price-crank:price-crank_oci_image" <<<"${conventional_name_output}"
+
+exact_label_output="$(
+  BUILD_WORKSPACE_DIRECTORY="${workspace}" "${oci}" build \
+    --bazel "${fake_bazel}" \
+    --image //services/price-crank:price-crank_oci_image \
+    --dry-run
+)"
+grep -Fx -- "+ ${fake_bazel} build --compilation_mode=opt --jobs=4 //services/price-crank:price-crank_oci_image" <<<"${exact_label_output}"
+
+precedence_output="$(
+  BUILD_WORKSPACE_DIRECTORY="${workspace}" "${oci}" build \
+    --bazel "${fake_bazel}" \
+    --image foo \
+    --dry-run
+)"
+grep -Fx -- "+ ${fake_bazel} build --compilation_mode=opt --jobs=4 //services/foo:foo_image" <<<"${precedence_output}"
+
+generated_name_precedence_output="$(
+  BUILD_WORKSPACE_DIRECTORY="${workspace}" "${oci}" build \
+    --bazel "${fake_bazel}" \
+    --image foo_image \
+    --dry-run
+)"
+grep -Fx -- "+ ${fake_bazel} build --compilation_mode=opt --jobs=4 //services/foo:foo_image" <<<"${generated_name_precedence_output}"
+
+collision_exact_label_output="$(
+  BUILD_WORKSPACE_DIRECTORY="${workspace}" "${oci}" build \
+    --bazel "${fake_bazel}" \
+    --image //services/shared-a:shared_oci_image \
+    --dry-run
+)"
+grep -Fx -- "+ ${fake_bazel} build --compilation_mode=opt --jobs=4 //services/shared-a:shared_oci_image" <<<"${collision_exact_label_output}"
+
+tarball_output="$(
+  BUILD_WORKSPACE_DIRECTORY="${workspace}" "${oci}" tarball \
+    --bazel "${fake_bazel}" \
+    --image beta_tarball \
+    --dry-run
+)"
+grep -Fx -- "+ ${fake_bazel} build --compilation_mode=opt --jobs=4 //services/beta:beta_tarball" <<<"${tarball_output}"
+
+single_push_output="$(
+  BUILD_WORKSPACE_DIRECTORY="${workspace}" "${oci}" push \
+    --bazel "${fake_bazel}" \
+    --image alpha \
+    --repository registry.example.com/team/alpha \
+    --dry-run
+)"
+expected_single_push_output="+ ${fake_bazel} build --compilation_mode=opt --jobs=4 //services/alpha:alpha_push
++ ${fake_bazel} run --compilation_mode=opt //services/alpha:alpha_push -- --repository registry.example.com/team/alpha"
+if [[ "${single_push_output}" != "${expected_single_push_output}" ]]; then
+  echo "single push did not group-build before running:" >&2
+  printf '%s\n' "${single_push_output}" >&2
+  exit 1
+fi
+
+push_output="$(
+  BUILD_WORKSPACE_DIRECTORY="${workspace}" "${oci}" push \
+    --bazel "${fake_bazel}" \
+    --all \
+    --repository registry.example.com/team/images \
+    --tag release-sha \
+    --tag release-sha \
+    --tag -candidate \
+    --tag -candidate \
+    --tag latest \
+    --jobs 2 \
+    --dry-run
+)"
+expected_push_output="+ ${fake_bazel} build --compilation_mode=opt --jobs=2 //services/alpha:alpha_push //services/beta:beta_push //services/price-crank:price-crank_oci_push
++ ${fake_bazel} run --compilation_mode=opt //services/alpha:alpha_push -- --repository registry.example.com/team/images --tag release-sha --tag -candidate --tag latest
++ ${fake_bazel} run --compilation_mode=opt //services/beta:beta_push -- --repository registry.example.com/team/images --tag release-sha --tag -candidate --tag latest
++ ${fake_bazel} run --compilation_mode=opt //services/price-crank:price-crank_oci_push -- --repository registry.example.com/team/images --tag release-sha --tag -candidate --tag latest"
+if [[ "${push_output}" != "${expected_push_output}" ]]; then
+  echo "push-all dry run did not preserve grouped-build and push ordering:" >&2
+  printf '%s\n' "${push_output}" >&2
+  exit 1
+fi
+
+prebuild_failure_log="${TEST_TMPDIR}/prebuild-failure.log"
+if BUILD_WORKSPACE_DIRECTORY="${workspace}" \
+  FAKE_BAZEL_FAIL_BUILD=1 \
+  FAKE_BAZEL_LOG="${prebuild_failure_log}" \
+  "${oci}" push \
+    --bazel "${fake_bazel}" \
+    --image alpha >/dev/null 2>&1; then
+  echo "push unexpectedly succeeded after grouped build failure" >&2
+  exit 1
+fi
+grep -Fxq -- "build --compilation_mode=opt --jobs=4 //services/alpha:alpha_push" "${prebuild_failure_log}"
+if grep -q '^run ' "${prebuild_failure_log}"; then
+  echo "push ran after grouped build failure" >&2
+  exit 1
+fi
+
+if BUILD_WORKSPACE_DIRECTORY="${workspace}" "${oci}" build \
+  --bazel "${fake_bazel}" --image missing --dry-run >/dev/null 2>&1; then
+  echo "missing image unexpectedly succeeded" >&2
+  exit 1
+fi
+
+if BUILD_WORKSPACE_DIRECTORY="${workspace}" "${oci}" build \
+  --bazel "${fake_bazel}" --image price --dry-run >/dev/null 2>&1; then
+  echo "partial conventional image name unexpectedly succeeded" >&2
+  exit 1
+fi
+
+assert_fails_with() {
+  expected="$1"
+  shift
+  if output="$(BUILD_WORKSPACE_DIRECTORY="${workspace}" "${oci}" "$@" 2>&1)"; then
+    echo "command unexpectedly succeeded: $*" >&2
+    exit 1
+  fi
+  grep -F -- "${expected}" <<<"${output}"
+}
+
+assert_fails_with "oci: --repository requires a value" \
+  push --bazel "${fake_bazel}" --all --repository
+assert_fails_with "oci: --repository requires a value" \
+  push --bazel "${fake_bazel}" --all --repository ""
+assert_fails_with "oci: --repository is only valid in push mode" \
+  build --bazel "${fake_bazel}" --all --repository registry.example.com/team/images
+assert_fails_with "oci: --compilation-mode must be one of fastbuild, dbg, or opt" \
+  build --bazel "${fake_bazel}" --all --compilation-mode release
+assert_fails_with "oci: ambiguous image selection for build: shared_oci_image matches multiple targets at generated target-name tier" \
+  build --bazel "${fake_bazel}" --image shared_oci_image --dry-run
+assert_fails_with "oci: ambiguous image selection for build: shared_oci matches multiple targets at logical-name tier" \
+  build --bazel "${fake_bazel}" --image shared_oci --dry-run
+assert_fails_with "oci: ambiguous image selection for build: shared matches multiple targets at conventional shorthand tier" \
+  build --bazel "${fake_bazel}" --image shared --dry-run
+
+"${oci}" --help >/dev/null

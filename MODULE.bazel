@@ -1,63 +1,151 @@
 module(
     name = "rules_monorepo",
-    version = "0.1.0",
+    version = "2026.07.17.4",
     compatibility_level = 1,
 )
 
 bazel_dep(name = "aspect_bazel_lib", version = "2.22.5")
-bazel_dep(name = "bazel_skylib", version = "1.8.2")
-bazel_dep(name = "platforms", version = "1.0.0")
+bazel_dep(name = "aspect_rules_js", version = "3.0.3")
+bazel_dep(name = "bazel_skylib", version = "1.9.0")
+bazel_dep(name = "llvm", version = "0.8.9")
+bazel_dep(name = "platforms", version = "1.1.0")
 bazel_dep(name = "rules_oci", version = "2.2.7")
+bazel_dep(name = "rules_nodejs", version = "6.7.4")
 bazel_dep(name = "rules_pkg", version = "1.0.1")
-bazel_dep(name = "rules_rust", version = "0.63.0")
+# This is the shared default. A consumer root may select a newer rules_rs or a
+# compatible fork with Bazel's single_version/archive/git/local_path overrides.
+bazel_dep(name = "rules_rs", version = "0.0.96")
 bazel_dep(name = "rules_shell", version = "0.6.1")
-bazel_dep(name = "toolchains_llvm", version = "1.6.0", dev_dependency = True)
 
-# Development-only toolchain setup for this repository's examples.
-# Marked as dev_dependency so consumers of @rules_monorepo don't inherit this.
-rust = use_extension("@rules_rust//rust:extensions.bzl", "rust", dev_dependency = True)
-rust.toolchain(
-    extra_target_triples = [
+# Keep the filtered macOS SDK aligned with rules_rs v0.0.96's own integration
+# workspace so transitive native crates can use its upstream-tested frameworks.
+osx = use_extension("@llvm//extensions:osx.bzl", "osx")
+osx.frameworks(names = [
+    "AudioToolbox",
+    "AudioUnit",
+    "CFNetwork",
+    "CoreAudio",
+    "CoreAudioTypes",
+    "CoreFoundation",
+    "CoreMIDI",
+    "CoreServices",
+    "DiskArbitration",
+    "Foundation",
+    "IOKit",
+    "Kernel",
+    "OSLog",
+    "OpenAL",
+    "Security",
+    "SystemConfiguration",
+])
+
+# These compatibility patches restore the rust-analyzer setup binaries missing
+# from rules_rs v0.0.96 and keep rustc from forwarding redundant C++ runtime
+# driver selectors. A consumer replacing rules_rs with an incompatible
+# rules_rust can replace this generated repository through override_repo.
+rules_rust = use_extension("@rules_rs//rs:rules_rust.bzl", "rules_rust")
+rules_rust.patch(
+    patches = [
+        "//tools/patches:rules_rust_drop_redundant_runtime_selectors.patch",
+        "//tools/patches:rules_rust_rust_analyzer_setup.patch",
+    ],
+    strip = 1,
+)
+use_repo(rules_rust, "rules_rust")
+
+# This fallback keeps consumers zero-config. A consumer can own its Rust version
+# by registering a uniquely named toolchain from this canonical extension; root
+# registrations take priority and also select the Cargo used by developer tools.
+rust_toolchains = use_extension("@rules_rs//rs/toolchains:module_extension.bzl", "toolchains")
+rust_toolchains.toolchain(
+    edition = "2024",
+    version = "1.97.0",
+)
+use_repo(rust_toolchains, "default_rust_toolchains")
+
+register_toolchains("@default_rust_toolchains//:all")
+register_toolchains("@llvm//toolchain:all")
+
+# cargo-audit is selected for the execution platform by //tools/rust. Official
+# v0.22.1 release assets and their GitHub-published checksums cover every host
+# used by the two consumer repositories.
+# Source: https://github.com/rustsec/rustsec/releases/tag/cargo-audit%2Fv0.22.1
+cargo_audit_binary = use_repo_rule(
+    "//rules_monorepo_rust:repositories.bzl",
+    "cargo_audit_binary",
+)
+cargo_audit_binary(
+    name = "cargo_audit_darwin_arm64",
+    sha256 = "04e76e1da25f597bea4814c44faf8aac215838b9f3646e3b6a873d87acd31b73",
+    target = "aarch64-apple-darwin",
+)
+cargo_audit_binary(
+    name = "cargo_audit_darwin_amd64",
+    sha256 = "582d104a2a4bdb127c6bf6d056d89eede40686d11f52e4bc1765132ec99d2fca",
+    target = "x86_64-apple-darwin",
+)
+cargo_audit_binary(
+    name = "cargo_audit_linux_arm64",
+    sha256 = "4c8df835ee484441bd2c8c6bcac28c4ce4b4058ba9e7477cb9e0012fe7769f66",
+    target = "aarch64-unknown-linux-gnu",
+)
+cargo_audit_binary(
+    name = "cargo_audit_linux_amd64",
+    sha256 = "1890badd5f15831a9af4b074399fcd21e6f7c0fe42c84e9254cdffc9f813765c",
+    target = "x86_64-unknown-linux-gnu",
+)
+
+rustsec_advisory_db = use_repo_rule(
+    "//rules_monorepo_rust:repositories.bzl",
+    "rustsec_advisory_db",
+)
+rustsec_advisory_db(
+    name = "rustsec_advisory_db",
+    commit = "86db0b0351854bf22e380345c7ead498a0ddacde",
+    sha256 = "675504a59e549db131a28c0e1b4db3f5d47599ac7491374a340ba12cb536d8d2",
+)
+
+# Development fixture proving that rules_rs follows a Cargo workspace lock and
+# maps first-party path dependencies to their Bazel package default targets.
+example_crates = use_extension(
+    "//rules_monorepo_rust:extensions.bzl",
+    "crate",
+    dev_dependency = True,
+)
+example_crates.from_cargo(
+    name = "example_crates",
+    cargo_lock = "//examples/cargo_workspace:Cargo.lock",
+    cargo_toml = "//examples/cargo_workspace:Cargo.toml",
+    platform_triples = [
+        "aarch64-apple-darwin",
         "aarch64-unknown-linux-gnu",
         "x86_64-unknown-linux-gnu",
     ],
-    versions = ["1.91.0"],
 )
-use_repo(rust, "rust_toolchains")
+use_repo(example_crates, "example_crates")
 
-llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm", dev_dependency = True)
-llvm.toolchain(
-    name = "llvm_toolchain",
-    llvm_versions = {"": "latest:>=17.0.0,<20"},
-)
-llvm.sysroot(
-    name = "llvm_toolchain",
-    label = "@org_chromium_sysroot_linux_x64//sysroot",
-    targets = ["linux-x86_64"],
-)
-llvm.sysroot(
-    name = "llvm_toolchain",
-    label = "@org_chromium_sysroot_linux_arm64//sysroot",
-    targets = ["linux-aarch64"],
-)
-use_repo(llvm, "llvm_toolchain", "llvm_toolchain_llvm")
-register_toolchains(
-    "@llvm_toolchain//:cc-toolchain-x86_64-linux",
-    "@llvm_toolchain//:cc-toolchain-aarch64-linux",
-    dev_dependency = True,
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = "playwright_chromium_headless_shell_linux_x64",
+    build_file_content = """
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "chrome_headless_shell_files",
+    srcs = glob(["chrome-headless-shell-linux64/**"]),
 )
 
-sysroot = use_repo_rule("@toolchains_llvm//toolchain:sysroot.bzl", "sysroot")
-sysroot(
-    name = "org_chromium_sysroot_linux_x64",
-    sha256 = "93761371443acf55f429cab6628d5b423bf9a07a3445d2376b4ba52cb35a6d99",
-    urls = ["https://commondatastorage.googleapis.com/chrome-linux-sysroot/toolchain/812a1cdc57400e9e0b3def67d41403b8bb764d2d/debian_sid_amd64_sysroot.tar.xz"],
-    dev_dependency = True,
+filegroup(
+    name = "chrome_headless_shell",
+    srcs = ["chrome-headless-shell-linux64/chrome-headless-shell"],
 )
-sysroot(
-    name = "org_chromium_sysroot_linux_arm64",
-    sha256 = "38b11a17004bf9f5245f1de1c20d45b389b9dab18ce564ad73b44b6655c61850",
-    urls = ["https://commondatastorage.googleapis.com/chrome-linux-sysroot/toolchain/f421bdbada4278feede4bae1ec8be91299e8938b/debian_sid_arm64_sysroot.tar.xz"],
+""",
+    sha256 = "a9a525cb3832d59a810f78f8ba6c5ed3592a6a488984627f5d827c2a365c8a5a",
+    urls = [
+        "https://cdn.playwright.dev/dbazure/download/playwright/builds/chromium/1200/chromium-headless-shell-linux.zip",
+        "https://playwright.download.prss.microsoft.com/dbazure/download/playwright/builds/chromium/1200/chromium-headless-shell-linux.zip",
+        "https://cdn.playwright.dev/builds/chromium/1200/chromium-headless-shell-linux.zip",
+    ],
     dev_dependency = True,
 )
 
@@ -69,18 +157,57 @@ monorepo_tools = use_extension(
 )
 use_repo(monorepo_tools, "kubectl_bin", "kustomize_bin")
 
-# Default OCI bases used by binary_oci_image / rust_binary_oci_image in examples.
-oci = use_extension("@rules_oci//oci:extensions.bzl", "oci", dev_dependency = True)
+# Development-only mdBook setup for the docs rule smoke target.
+download_mdbook = use_repo_rule(
+    "//rules_monorepo_docs:repositories.bzl",
+    "download_mdbook",
+)
+download_mdbook(name = "mdbook_bin", dev_dependency = True)
+
+# Development-only frontend toolchain setup for this repository's examples.
+node = use_extension("@rules_nodejs//nodejs:extensions.bzl", "node", dev_dependency = True)
+node.toolchain(node_version = "24.14.0")
+use_repo(node, "nodejs_toolchains")
+
+pnpm = use_extension("@aspect_rules_js//npm:extensions.bzl", "pnpm", dev_dependency = True)
+pnpm.pnpm(pnpm_version = "10.33.0")
+use_repo(pnpm, "pnpm")
+
+npm = use_extension("@aspect_rules_js//npm:extensions.bzl", "npm", dev_dependency = True)
+npm.npm_translate_lock(
+    name = "npm",
+    data = ["//examples/svelte_vite_app:pnpm-workspace.yaml"],
+    pnpm_lock = "//examples/svelte_vite_app:pnpm-lock.yaml",
+    bins = {
+        "eslint": ["eslint=bin/eslint.js"],
+        "playwright": ["playwright=cli.js"],
+        "prettier": ["prettier=bin/prettier.cjs"],
+        "svelte-check": ["svelte-check=bin/svelte-check"],
+        "typescript": ["tsc=bin/tsc"],
+        "vite": ["vite=bin/vite.js"],
+    },
+)
+use_repo(npm, "npm")
+
+# Reproducible default OCI bases owned by rules_monorepo. Labels constructed in
+# this module's Starlark resolve through this repository mapping, so consumers
+# do not need to repeat these pulls in their own MODULE.bazel files.
+# Resolved from gcr.io/distroless/cc-debian12:nonroot on 2026-07-16; its OCI
+# index was sha256:66aa873a4a14fb164aa01296058efd8253744606d72715e45acface073359faa.
+oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
 oci.pull(
     name = "distroless_cc_linux_amd64",
     image = "gcr.io/distroless/cc-debian12",
-    tag = "latest-amd64",
-    reproducible = False,
+    digest = "sha256:471dbca9cad607b9a32c10e9c31fb09ffaeb2d460e0afbff86c27abbc80b1b98",
 )
 oci.pull(
     name = "distroless_cc_linux_arm64",
     image = "gcr.io/distroless/cc-debian12",
-    tag = "latest-arm64",
-    reproducible = False,
+    digest = "sha256:025509536b1e921fb8b0c5443a346a494d07f171d220782f65059cbaccc52aa9",
 )
-use_repo(oci, "distroless_cc_linux_amd64", "distroless_cc_linux_arm64")
+oci.pull(
+    name = "nginx_unprivileged_linux_amd64",
+    image = "index.docker.io/nginxinc/nginx-unprivileged",
+    digest = "sha256:28d91bdce70ad09025ea901458fdd149259d8e05982ade79d4ef2c0d9470eb48",
+)
+use_repo(oci, "distroless_cc_linux_amd64", "distroless_cc_linux_arm64", "nginx_unprivileged_linux_amd64")

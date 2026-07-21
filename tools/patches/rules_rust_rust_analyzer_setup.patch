@@ -1,0 +1,245 @@
+diff --git a/tools/rust_analyzer/BUILD.bazel b/tools/rust_analyzer/BUILD.bazel
+index 5adc63b..4d8c7a1 100644
+--- a/tools/rust_analyzer/BUILD.bazel
++++ b/tools/rust_analyzer/BUILD.bazel
+@@ -1,3 +1,6 @@
++load("//rust:defs.bzl", "rust_binary", "rust_test")
++load(":opt_transition.bzl", "opt_executable")
++
+ package(default_visibility = ["//visibility:public"])
+ 
+ exports_files([
+@@ -48,3 +51,83 @@ alias(
+     actual = "@rules_rs//tools/rust_analyzer:bzl_lib",
+     tags = ["manual"],
+ )
++
++rust_binary(
++    name = "flycheck",
++    srcs = ["bin/flycheck.rs"],
++    edition = "2021",
++    deps = [
++        ":gen_rust_project_lib",
++        "@rrra//:anyhow",
++        "@rrra//:camino",
++        "@rrra//:clap",
++        "@rrra//:env_logger",
++        "@rrra//:log",
++        "@rrra//:serde_json",
++    ],
++)
++
++rust_test(
++    name = "setup_test",
++    crate = ":setup",
++)
++
++opt_executable(
++    name = "discover_bazel_rust_project_opt",
++    src = ":discover_bazel_rust_project",
++    visibility = ["//visibility:private"],
++)
++
++opt_executable(
++    name = "flycheck_opt",
++    src = ":flycheck",
++    visibility = ["//visibility:private"],
++)
++
++rust_binary(
++    name = "launcher",
++    srcs = ["bin/launcher.rs"],
++    edition = "2021",
++    deps = [
++        "@rrra//:serde_json",
++    ],
++)
++
++opt_executable(
++    name = "launcher_opt",
++    src = ":launcher",
++    visibility = ["//visibility:private"],
++)
++
++rust_binary(
++    name = "setup",
++    srcs = ["bin/setup.rs"],
++    data = [
++        ":discover_bazel_rust_project_opt",
++        ":flycheck_opt",
++        ":launcher_opt",
++        "//rust/toolchain:current_rust_analyzer_toolchain",
++        "//rust/toolchain:current_rustfmt_toolchain",
++    ],
++    edition = "2021",
++    rustc_env = {
++        "LAUNCHER_RLOCATIONPATH": "$(rlocationpath :launcher_opt)",
++        "RUSTFMT_RLOCATIONPATH": "$(RUSTFMT_RLOCATIONPATH)",
++        "RUST_ANALYZER_PROC_MACRO_SRV_RLOCATIONPATH": "$(RUST_ANALYZER_PROC_MACRO_SRV_RLOCATIONPATH)",
++        "RUST_ANALYZER_RLOCATIONPATH": "$(RUST_ANALYZER_RLOCATIONPATH)",
++    },
++    toolchains = [
++        "//rust/toolchain:current_rust_analyzer_toolchain",
++        "//rust/toolchain:current_rustfmt_toolchain",
++    ],
++    deps = [
++        ":gen_rust_project_lib",
++        "//rust/runfiles",
++        "@rrra//:anyhow",
++        "@rrra//:camino",
++        "@rrra//:clap",
++        "@rrra//:env_logger",
++        "@rrra//:log",
++        "@rrra//:serde_json",
++    ],
++)
+diff --git a/tools/rust_analyzer/bin/setup.rs b/tools/rust_analyzer/bin/setup.rs
+--- a/tools/rust_analyzer/bin/setup.rs
++++ b/tools/rust_analyzer/bin/setup.rs
+@@ -149,8 +149,8 @@
+ 
+ #[derive(Subcommand)]
+ enum IdeCmd {
+-    /// Write/merge `.vscode/settings.json` and install source binaries
+-    /// under `.vscode/.rules_rust_analyzer/`.
++    /// Write/merge VSCode settings and install source binaries under the
++    /// workspace-root `.rules_rust_analyzer/` directory.
+     Vscode(VscodeArgs),
+ 
+     /// Install source binaries under `.rules_rust_analyzer/` (no
+@@ -218,10 +218,10 @@
+ 
+     let workspace = workspace.unwrap_or_else(|| Utf8PathBuf::from("."));
+ 
+-    // Resolve the Vscode output path eagerly so `launcher_dir_for`
+-    // sees the autodetected `.code-workspace` (or default
+-    // `.vscode/settings.json`) — its parent dir is the launcher_dir
+-    // basis, and we don't want to compute it twice.
++    // Resolve the Vscode output path eagerly so it is reused when settings
++    // are written. VSCode launcher paths are workspace-relative, so their
++    // install directory is always rooted at the workspace regardless of the
++    // settings output path.
+     let vscode_targets = match &ide {
+         IdeCmd::Vscode(args) => Some(resolve_vscode_targets(&workspace, args)?),
+         IdeCmd::Neovim | IdeCmd::Helix | IdeCmd::Print => None,
+@@ -323,8 +323,8 @@
+ 
+ const DEFAULT_VSCODE_OUTPUT: &str = ".vscode/settings.json";
+ 
+-/// Resolved once before `launcher_dir_for` (which needs the output's
+-/// parent dir) so the same values flow into both that and `run_vscode`.
++/// Resolved once before launcher installation so the same output path and
++/// settings key flow into `run_vscode` without repeating auto-detection.
+ #[derive(Debug)]
+ struct ResolvedVscodeTargets {
+     output: Utf8PathBuf,
+@@ -568,23 +568,16 @@
+ /// Resolve the launcher directory for a given IDE subcommand. Setup is
+ /// authoritative over the binary install dir / cache / output_user_root
+ /// placement; every downstream default is computed by appending to
+-/// whatever this returns. For Vscode the launcher_dir sits alongside
+-/// the resolved settings file (defaults to `.vscode/.rules_rust_analyzer/`
+-/// when writing to `.vscode/settings.json`, sits at workspace root when
+-/// targeting a `.code-workspace` there).
++/// whatever this returns. VSCode settings refer to launchers through
++/// `${workspaceFolder}/.rules_rust_analyzer`, so their install directory
++/// stays at the workspace root even for nested or custom settings output.
+ fn launcher_dir_for(
+     workspace: &Utf8Path,
+     ide: &IdeCmd,
+-    vscode_targets: Option<&ResolvedVscodeTargets>,
++    _vscode_targets: Option<&ResolvedVscodeTargets>,
+ ) -> Utf8PathBuf {
+     match ide {
+-        IdeCmd::Vscode(_) => vscode_targets
+-            .expect("vscode_targets must be resolved for IdeCmd::Vscode")
+-            .output
+-            .parent()
+-            .map(|p| p.to_owned())
+-            .unwrap_or_else(|| workspace.join(".vscode"))
+-            .join(LAUNCHER_SUBDIR),
++        IdeCmd::Vscode(_) => workspace.join(LAUNCHER_SUBDIR),
+         IdeCmd::Helix => workspace.join(".helix").join(LAUNCHER_SUBDIR),
+         // Neovim has no canonical per-project dotdir; print covers
+         // editor-agnostic JSON-config LSP clients. Both land at the
+@@ -1211,7 +1204,7 @@
+ 
+     fn dummy_ctx() -> (SetupCtx, Utf8PathBuf) {
+         let workspace = Utf8PathBuf::from("/ws");
+-        let launcher_dir = workspace.join(".vscode").join(LAUNCHER_SUBDIR);
++        let launcher_dir = workspace.join(LAUNCHER_SUBDIR);
+         let ctx = SetupCtx {
+             workspace,
+             launcher_dir: launcher_dir.clone(),
+@@ -1462,7 +1455,7 @@
+         let vscode_resolved = vscode_targets("/workspace/.vscode/settings.json", None);
+         assert_eq!(
+             launcher_dir_for(&ws, &vscode, Some(&vscode_resolved)),
+-            Utf8PathBuf::from("/workspace/.vscode/.rules_rust_analyzer"),
++            Utf8PathBuf::from("/workspace/.rules_rust_analyzer"),
+         );
+         assert_eq!(
+             launcher_dir_for(&ws, &IdeCmd::Helix, None),
+@@ -1479,22 +1472,56 @@
+     }
+ 
+     #[test]
+-    fn launcher_dir_for_vscode_honors_custom_output() {
++    fn launcher_dir_for_vscode_ignores_custom_output() {
+         let ws = Utf8PathBuf::from("/workspace");
+-        // Custom output path → launcher dir sits alongside it.
++        // Custom settings output does not change workspace-relative launchers.
+         let vscode = IdeCmd::Vscode(empty_vscode_args());
+         let resolved = vscode_targets("/workspace/.custom/conf.json", None);
+         assert_eq!(
+             launcher_dir_for(&ws, &vscode, Some(&resolved)),
+-            Utf8PathBuf::from("/workspace/.custom/.rules_rust_analyzer"),
++            Utf8PathBuf::from("/workspace/.rules_rust_analyzer"),
+         );
+     }
+ 
+     #[test]
++    fn vscode_launcher_paths_match_install_directory() {
++        let (ctx, _) = dummy_ctx();
++        let vscode = IdeCmd::Vscode(empty_vscode_args());
++        let resolved = vscode_targets("/ws/.custom/conf.json", None);
++        let launcher_dir = launcher_dir_for(&ctx.workspace, &vscode, Some(&resolved));
++        let relative = launcher_dir.strip_prefix(&ctx.workspace).unwrap();
++        let prefix = format!("${{workspaceFolder}}/{relative}/");
++        let keys = vscode_managed_keys(&ctx);
++
++        let discover_path = replace_value(&keys, DISCOVER_CONFIG_KEY)
++            .get("command")
++            .and_then(Value::as_array)
++            .and_then(|command| command.first())
++            .and_then(Value::as_str)
++            .expect("discover command must start with a path");
++        let rustfmt_path = replace_value(&keys, RUSTFMT_OVERRIDE_KEY)
++            .as_array()
++            .and_then(|command| command.first())
++            .and_then(Value::as_str)
++            .expect("rustfmt override must start with a path");
++
++        for path in [
++            replace_value(&keys, SERVER_PATH_KEY).as_str().unwrap(),
++            replace_value(&keys, PROC_MACRO_SRV_KEY).as_str().unwrap(),
++            discover_path,
++            rustfmt_path,
++        ] {
++            assert!(
++                path.starts_with(&prefix),
++                "launcher path {path} must start with {prefix}",
++            );
++        }
++    }
++
++    #[test]
+     fn launcher_dir_for_vscode_with_code_workspace_targets_workspace_root() {
+-        // A `.code-workspace` at the workspace root means the launcher
+-        // dir sits at the workspace root too (same shape as Neovim /
+-        // Print), not under `.vscode/`.
++        // A `.code-workspace` at the workspace root uses the same launcher
++        // directory as every other VSCode settings output.
+         let ws = Utf8PathBuf::from("/workspace");
+         let vscode = IdeCmd::Vscode(empty_vscode_args());
+         let resolved = vscode_targets("/workspace/myproj.code-workspace", Some("settings"));

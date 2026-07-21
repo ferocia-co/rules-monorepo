@@ -1,0 +1,7 @@
+[workspace]
+members = ["app", "greeting"]
+resolver = "3"
+
+[workspace.package]
+edition = "2024"
+version = "0.1.0"

@@ -11,6 +11,9 @@ This example shows the full pipeline:
 
 - `:app` - Rust binary
 - `:app_image` - OCI image
+- `:app_component_oci_load` - Docker loader for the single-manifest app image
+- `:app_component_oci_tarball` - Docker archive tagged `example-app-component:local`
+- `:app_arm64_image` - ARM64 OCI image with a Docker-format tarball target
 - `:app_push` - registry push target
 - `:app_deploy` - rendered manifest
 - `:app_deploy.apply` - apply flow
@@ -21,6 +24,7 @@ This example shows the full pipeline:
 ```bash
 bazel run //examples/rust_service:app_deploy.apply
 bazel run //examples/rust_service:app_deploy.delete
+bazel build //examples/rust_service:app_component_oci_tarball
 ```
 
 ## Notes

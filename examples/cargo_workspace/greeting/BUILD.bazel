@@ -1,0 +1,12 @@
+load("//examples/cargo_workspace:cargo_deps.bzl", "CARGO")
+load("//rules_monorepo_rust:cargo_defs.bzl", "cargo_rust_library")
+
+package(default_visibility = ["//visibility:public"])
+
+cargo_rust_library(
+    name = "greeting",
+    srcs = ["src/lib.rs"],
+    cargo = CARGO,
+    crate_name = "greeting",
+    edition = "2024",
+)

@@ -1,0 +1,17 @@
+load("@rules_monorepo//rules_monorepo_rust:cargo_defs.bzl", "cargo_audit_test")
+
+package(default_visibility = ["//visibility:public"])
+
+exports_files([
+    "Cargo.lock",
+    "Cargo.toml",
+    "cargo_deps.bzl",
+])
+
+cargo_audit_test(
+    name = "cargo_audit",
+    cargo_locks = [
+        ":Cargo.lock",
+        ":Cargo.lock",
+    ],
+)

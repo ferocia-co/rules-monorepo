@@ -1,27 +1,23 @@
+load(":rust/cargo_test.bzl", "cargo_api_tests")
+load(":rust/facade_test.bzl", "rust_facade_load_test")
+
 package(default_visibility = ["//visibility:public"])
 
 exports_files([
     "README.md",
     "cargo_defs.bzl",
     "defs.bzl",
+    "extensions.bzl",
+    "repositories.bzl",
+    "rust/audit.bzl",
     "rust/cargo.bzl",
+    "rust/cargo_test.bzl",
     "rust/defs.bzl",
+    "rust/facade_test.bzl",
     "rust/oci.bzl",
     "rust/transitions.bzl",
+    "rust/upstream.bzl",
 ])
 
-platform(
-    name = "linux_amd64",
-    constraint_values = [
-        "@platforms//os:linux",
-        "@platforms//cpu:x86_64",
-    ],
-)
-
-platform(
-    name = "linux_arm64",
-    constraint_values = [
-        "@platforms//os:linux",
-        "@platforms//cpu:arm64",
-    ],
-)
+cargo_api_tests()
+rust_facade_load_test()

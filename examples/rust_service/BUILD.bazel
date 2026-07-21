@@ -1,6 +1,5 @@
-load("@rules_rust//rust:defs.bzl", "rust_binary")
-load("@rules_monorepo//rules_monorepo:defs.bzl", "k8s_oci_deploy")
-load("@rules_monorepo//rules_monorepo_rust:defs.bzl", "rust_binary_oci_image")
+load("@rules_monorepo//rules_monorepo:defs.bzl", "k8s_oci_deploy", "oci_archive")
+load("@rules_monorepo//rules_monorepo_rust:defs.bzl", "rust_binary", "rust_binary_oci_image")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -15,6 +14,27 @@ rust_binary_oci_image(
     binary = ":app",
     repository = "registry.example.com/example/app",
     repo_tags = ["example-app:local"],
+)
+
+# A language-agnostic Docker archive around one already-built image manifest,
+# not an image index. Component tests reuse it without rebuilding the application.
+oci_archive(
+    name = "app_component_oci",
+    image = ":app_image",
+    format = "docker",
+    output = "app-component.tar",
+    repo_tags = ["example-app-component:local"],
+)
+
+# The second image exercises the ARM64 transition and independent Docker
+# tarball output without creating a multi-architecture index.
+rust_binary_oci_image(
+    name = "app_arm64",
+    architecture = "arm64",
+    binary = ":app",
+    repository = "registry.example.com/example/app-arm64",
+    repo_tags = ["example-app-arm64:local"],
+    tarball_format = "docker",
 )
 
 filegroup(

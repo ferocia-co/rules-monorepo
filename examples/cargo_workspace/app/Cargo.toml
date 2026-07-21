@@ -1,0 +1,11 @@
+[package]
+name = "app"
+edition.workspace = true
+version.workspace = true
+
+[[bin]]
+name = "app"
+path = "src/main.rs"
+
+[dependencies]
+greeting = { path = "../greeting" }

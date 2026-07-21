@@ -7,4 +7,5 @@ exports_files([
     "CONTRIBUTING.md",
     "CODE_OF_CONDUCT.md",
     "SECURITY.md",
+    "rustfmt.toml",
 ])

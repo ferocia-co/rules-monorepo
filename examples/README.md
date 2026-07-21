@@ -7,7 +7,7 @@ This directory contains copy-pasteable examples for `rules_monorepo`.
 In a consumer repo `MODULE.bazel`:
 
 ```starlark
-bazel_dep(name = "rules_monorepo", version = "0.1.0")
+bazel_dep(name = "rules_monorepo", version = "2026.07.17.4")
 
 archive_override(
     module_name = "rules_monorepo",
@@ -19,6 +19,22 @@ archive_override(
 
 See root `README.md` for `git_override` and `local_path_override` alternatives.
 See `rules_monorepo_rust/README.md` for Cargo-inferred Rust wrappers (`cargo_defs.bzl`) that avoid duplicated crate deps in BUILD files.
+See `rules_monorepo_frontend/README.md` for pnpm/Svelte/Vite frontend rules.
+
+## cargo_workspace
+
+Path: `examples/cargo_workspace`
+
+This fixture demonstrates the direct `rules_rs` integration: one root
+`Cargo.toml`, one `Cargo.lock`, a package-local dependency adapter, and an app
+whose first-party `greeting` path dependency is inferred without a BUILD dep.
+The adapter loads generated `DEP_DATA` once so normal/dev/build aliases use the
+same dependency-kind and platform selectors as the inferred dependency edges.
+
+```bash
+bazel build //examples/cargo_workspace/app
+bazel test //rules_monorepo_rust:cargo_api_tests
+```
 
 ## rust_service
 
@@ -28,6 +44,8 @@ Demonstrates:
 
 - `rust_binary` build
 - `rust_binary_oci_image` packaging
+- language-agnostic `oci_archive` wrapping of one image manifest, not an index
+- separate AMD64 OCI and ARM64/Docker-tarball configurations
 - `k8s_oci_deploy` apply/delete targets
 
 Note:
@@ -38,6 +56,8 @@ Note:
 Key targets:
 
 - `//examples/rust_service:app_push`
+- `//examples/rust_service:app_component_oci_tarball`
+- `//examples/rust_service:app_arm64_image`
 - `//examples/rust_service:app_deploy.apply`
 - `//examples/rust_service:app_deploy.delete`
 
@@ -45,4 +65,30 @@ Analysis-only validation command:
 
 ```bash
 env -u BAZEL_OPTS bazelisk --ignore_all_rc_files --output_user_root=/tmp/rules-monorepo-bazel-root build --nobuild //examples/rust_service:app_deploy.apply
+```
+
+## svelte_vite_app
+
+Path: `examples/svelte_vite_app`
+
+Demonstrates:
+
+- package-local `@npm` bin wrappers from `aspect_rules_js`
+- `pnpm_svelte_vite_app` Vite bundle target
+- `pnpm_frontend_checks` aggregate Svelte, TypeScript, Prettier, and ESLint checks
+- `pnpm_playwright_test` smoke test wiring
+- `frontend_static_site_oci_image` nginx static-site image targets
+
+Key targets:
+
+- `//examples/svelte_vite_app:bundle`
+- `//examples/svelte_vite_app:checks`
+- `//examples/svelte_vite_app:playwright_test`
+- `//examples/svelte_vite_app:frontend_image`
+- `//examples/svelte_vite_app:frontend_push`
+
+Analysis-only validation command:
+
+```bash
+env -u BAZEL_OPTS bazelisk --ignore_all_rc_files --output_user_root=/tmp/rules-monorepo-bazel-root build --nobuild //examples/svelte_vite_app:bundle //examples/svelte_vite_app:checks //examples/svelte_vite_app:frontend_image
 ```
