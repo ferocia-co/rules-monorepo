@@ -9,7 +9,10 @@ bazel run @rules_monorepo//tools/oci -- build --bazel ./tools/bazel --all
 bazel run @rules_monorepo//tools/oci -- tarball --bazel ./tools/bazel --image worker
 bazel run @rules_monorepo//tools/oci -- push --bazel ./tools/bazel \
   --image worker --repository registry.example.com/team/worker \
-  --tag "$GIT_SHA" --tag latest --bazel-jobs 16 --push-jobs 4
+  --tag "$GIT_SHA" --tag latest --bazel-jobs 16 --push-jobs 4 \
+  --profile "$RUNNER_TEMP/oci.profile.gz" \
+  --execution-log "$RUNNER_TEMP/oci-execution.log" \
+  --build-event-json "$RUNNER_TEMP/oci-bep.json"
 
 # Temporary rollback path if direct launcher execution is incompatible.
 bazel run @rules_monorepo//tools/oci -- push --bazel ./tools/bazel \
@@ -30,6 +33,14 @@ together and stops if that build fails. `--bazel-jobs` bounds that batch build,
 while `--push-jobs` independently bounds concurrent push processes. Both
 default to 4. The legacy `--jobs` option sets both values for backwards
 compatibility; an explicit split option wins regardless of argument order.
+
+`--profile`, `--execution-log`, and `--build-event-json` expose Bazel's JSON
+trace profile, compact execution log, and JSON Build Event Protocol outputs,
+respectively. These flags apply only to the one grouped `bazel build`; they are
+never forwarded to target discovery, direct-launcher `cquery`/`info`, or the
+per-image `bazel run` rollback path. Each option may appear only once, and the
+three paths must be distinct so profiling artifacts cannot silently overwrite
+one another. Relative paths are resolved from `BUILD_WORKSPACE_DIRECTORY`.
 
 Push execution defaults to `--push-execution direct`. The grouped build uses
 `--remote_download_outputs=all`, then one same-configuration `cquery` resolves

@@ -57,6 +57,7 @@ execution_root=${FAKE_BAZEL_EXECUTION_ROOT:-${PWD}/fake-execroot}
 
 case "${1:-}" in
   query)
+    log_line "$*"
     cat <<'EOF'
 //services/alpha:alpha_image
 //services/alpha:alpha_image.digest

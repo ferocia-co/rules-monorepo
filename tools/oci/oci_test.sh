@@ -329,6 +329,94 @@ if grep -Eq '^(cquery|info|launcher) ' "${fallback_log}"; then
   exit 1
 fi
 
+assert_build_profiling_scope() {
+  local name="$1"
+  local mode="$2"
+  local image="$3"
+  local expected_target="$4"
+  local execution="$5"
+  local log="${TEST_TMPDIR}/${name}-profiling.log"
+  local profile_path="${TEST_TMPDIR}/${name}.profile.gz"
+  local execution_log_path="${TEST_TMPDIR}/${name}.execution.log"
+  local build_event_json_path="${TEST_TMPDIR}/${name}.bep.json"
+  local compilation_mode="opt"
+  local -a extra_args=()
+
+  case "${execution}" in
+    direct) ;;
+    fallback)
+      compilation_mode="fastbuild"
+      extra_args+=(--push-execution bazel-run --compilation-mode fastbuild)
+      ;;
+    none) ;;
+    *)
+      echo "unknown profiling test execution mode: ${execution}" >&2
+      exit 1
+      ;;
+  esac
+
+  BUILD_WORKSPACE_DIRECTORY="${workspace}" \
+    FAKE_BAZEL_LOG="${log}" \
+    "${oci}" "${mode}" \
+      --bazel "${fake_bazel}" \
+      --image "${image}" \
+      --profile "${profile_path}" \
+      --execution-log "${execution_log_path}" \
+      --build-event-json "${build_event_json_path}" \
+      "${extra_args[@]}"
+
+  local expected_build="build --compilation_mode=${compilation_mode} --jobs=4"
+  if [[ "${execution}" == "direct" ]]; then
+    expected_build+=" --remote_download_outputs=all"
+  fi
+  expected_build+=" --profile=${profile_path}"
+  expected_build+=" --execution_log_compact_file=${execution_log_path}"
+  expected_build+=" --build_event_json_file=${build_event_json_path}"
+  expected_build+=" ${expected_target}"
+
+  if ! grep -Fxq -- "${expected_build}" "${log}"; then
+    echo "${name}: profiling flags changed the grouped build contract" >&2
+    cat "${log}" >&2
+    exit 1
+  fi
+  if [[ "$(grep -c '^build ' "${log}")" -ne 1 ]]; then
+    echo "${name}: expected exactly one grouped build" >&2
+    cat "${log}" >&2
+    exit 1
+  fi
+  if ! grep -q '^query ' "${log}"; then
+    echo "${name}: fake Bazel did not observe target discovery" >&2
+    cat "${log}" >&2
+    exit 1
+  fi
+
+  local build_flag
+  for build_flag in \
+    "--profile=${profile_path}" \
+    "--execution_log_compact_file=${execution_log_path}" \
+    "--build_event_json_file=${build_event_json_path}"; do
+    if [[ "$(grep -F -c -- "${build_flag}" "${log}")" -ne 1 ]]; then
+      echo "${name}: ${build_flag} did not occur exactly once" >&2
+      cat "${log}" >&2
+      exit 1
+    fi
+    if grep -v '^build ' "${log}" | grep -Fq -- "${build_flag}"; then
+      echo "${name}: ${build_flag} escaped the grouped build" >&2
+      cat "${log}" >&2
+      exit 1
+    fi
+  done
+}
+
+assert_build_profiling_scope \
+  build build alpha //services/alpha:alpha_image none
+assert_build_profiling_scope \
+  tarball tarball beta //services/beta:beta_tarball none
+assert_build_profiling_scope \
+  direct-push push alpha //services/alpha:alpha_push direct
+assert_build_profiling_scope \
+  fallback-push push alpha //services/alpha:alpha_push fallback
+
 assert_no_registry_mutation() {
   local name="$1"
   local log="$2"
@@ -497,6 +585,30 @@ assert_fails_with "oci: --push-execution must be one of direct or bazel-run" \
   push --bazel "${fake_bazel}" --all --push-execution invalid
 assert_fails_with "oci: --compilation-mode must be one of fastbuild, dbg, or opt" \
   build --bazel "${fake_bazel}" --all --compilation-mode release
+for output_option in --profile --execution-log --build-event-json; do
+  assert_fails_with "oci: ${output_option} requires a path" \
+    build --bazel "${fake_bazel}" --all "${output_option}"
+  assert_fails_with "oci: ${output_option} requires a path" \
+    build --bazel "${fake_bazel}" --all "${output_option}" ""
+  assert_fails_with "oci: ${output_option} requires a path" \
+    build --bazel "${fake_bazel}" --all "${output_option}" --dry-run
+  assert_fails_with "oci: ${output_option} may only be specified once" \
+    build --bazel "${fake_bazel}" --all \
+      "${output_option}" "${TEST_TMPDIR}/first-output" \
+      "${output_option}" "${TEST_TMPDIR}/second-output"
+done
+assert_fails_with "oci: profiling output paths must be distinct" \
+  build --bazel "${fake_bazel}" --all \
+    --profile "${TEST_TMPDIR}/shared-output" \
+    --execution-log "${TEST_TMPDIR}/shared-output"
+assert_fails_with "oci: profiling output paths must be distinct" \
+  build --bazel "${fake_bazel}" --all \
+    --profile "${TEST_TMPDIR}/shared-output" \
+    --build-event-json "${TEST_TMPDIR}/shared-output"
+assert_fails_with "oci: profiling output paths must be distinct" \
+  build --bazel "${fake_bazel}" --all \
+    --execution-log "${TEST_TMPDIR}/shared-output" \
+    --build-event-json "${TEST_TMPDIR}/shared-output"
 assert_fails_with "oci: ambiguous image selection for build: shared_oci_image matches multiple targets at generated target-name tier" \
   build --bazel "${fake_bazel}" --image shared_oci_image --dry-run
 assert_fails_with "oci: ambiguous image selection for build: shared_oci matches multiple targets at logical-name tier" \
@@ -518,3 +630,6 @@ grep -F -- "--jobs N" <<<"${help_output}"
 grep -F -- "--bazel-jobs N" <<<"${help_output}"
 grep -F -- "--push-jobs N" <<<"${help_output}"
 grep -F -- "--push-execution MODE" <<<"${help_output}"
+grep -F -- "--profile PATH" <<<"${help_output}"
+grep -F -- "--execution-log PATH" <<<"${help_output}"
+grep -F -- "--build-event-json PATH" <<<"${help_output}"

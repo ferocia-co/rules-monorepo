@@ -25,6 +25,12 @@ Options:
                      bazel-run is the rollback path; push-only.
   --compilation-mode MODE
                      Bazel compilation mode: fastbuild, dbg, or opt (default: opt).
+  --profile PATH     Write a Bazel JSON trace profile for the batch build.
+  --execution-log PATH
+                     Write a compact Bazel execution log for the batch build.
+  --build-event-json PATH
+                     Write a JSON Build Event Protocol file for the batch build.
+                     Each output option may be specified only once.
   --dry-run          Query and resolve launchers, but only print build/push operations.
   -h, --help         Show this help.
 EOF
@@ -73,6 +79,9 @@ push_jobs_set=0
 push_execution="direct"
 push_execution_set=0
 compilation_mode="opt"
+profile_path=""
+execution_log_path=""
+build_event_json_path=""
 dry_run=0
 
 while [ "$#" -gt 0 ]; do
@@ -160,6 +169,36 @@ while [ "$#" -gt 0 ]; do
       esac
       shift 2
       ;;
+    --profile)
+      [ "$#" -ge 2 ] || die "--profile requires a path"
+      [ -n "$2" ] || die "--profile requires a path"
+      case "$2" in
+        --*) die "--profile requires a path" ;;
+      esac
+      [ -z "$profile_path" ] || die "--profile may only be specified once"
+      profile_path="$2"
+      shift 2
+      ;;
+    --execution-log)
+      [ "$#" -ge 2 ] || die "--execution-log requires a path"
+      [ -n "$2" ] || die "--execution-log requires a path"
+      case "$2" in
+        --*) die "--execution-log requires a path" ;;
+      esac
+      [ -z "$execution_log_path" ] || die "--execution-log may only be specified once"
+      execution_log_path="$2"
+      shift 2
+      ;;
+    --build-event-json)
+      [ "$#" -ge 2 ] || die "--build-event-json requires a path"
+      [ -n "$2" ] || die "--build-event-json requires a path"
+      case "$2" in
+        --*) die "--build-event-json requires a path" ;;
+      esac
+      [ -z "$build_event_json_path" ] || die "--build-event-json may only be specified once"
+      build_event_json_path="$2"
+      shift 2
+      ;;
     --dry-run)
       dry_run=1
       shift
@@ -184,6 +223,9 @@ push_jobs=${push_jobs:-$legacy_jobs}
 [ "$mode" = "push" ] || [ -z "$repository" ] || die "--repository is only valid in push mode"
 [ "$mode" = "push" ] || [ "$push_jobs_set" -eq 0 ] || die "--push-jobs is only valid in push mode"
 [ "$mode" = "push" ] || [ "$push_execution_set" -eq 0 ] || die "--push-execution is only valid in push mode"
+[ -z "$profile_path" ] || [ "$profile_path" != "$execution_log_path" ] || die "profiling output paths must be distinct"
+[ -z "$profile_path" ] || [ "$profile_path" != "$build_event_json_path" ] || die "profiling output paths must be distinct"
+[ -z "$execution_log_path" ] || [ "$execution_log_path" != "$build_event_json_path" ] || die "profiling output paths must be distinct"
 
 case "$scope" in
   //*|@*//*) ;;
@@ -288,6 +330,15 @@ build_selected_targets() {
     # Direct launchers need their executable, manifest, and runfiles available
     # locally even when a remote cache or executor served the build.
     set -- "$@" --remote_download_outputs=all
+  fi
+  if [ -n "$profile_path" ]; then
+    set -- "$@" "--profile=$profile_path"
+  fi
+  if [ -n "$execution_log_path" ]; then
+    set -- "$@" "--execution_log_compact_file=$execution_log_path"
+  fi
+  if [ -n "$build_event_json_path" ]; then
+    set -- "$@" "--build_event_json_file=$build_event_json_path"
   fi
   old_ifs=$IFS
   IFS='
