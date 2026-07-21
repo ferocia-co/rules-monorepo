@@ -1,4 +1,5 @@
 load("@rules_monorepo//rules_monorepo:defs.bzl", "k8s_oci_deploy", "oci_archive")
+load("@rules_monorepo//rules_monorepo_img:defs.bzl", "rust_binary_img_pilot")
 load("@rules_monorepo//rules_monorepo_rust:defs.bzl", "rust_binary", "rust_binary_oci_image")
 
 package(default_visibility = ["//visibility:public"])
@@ -7,6 +8,13 @@ rust_binary(
     name = "app",
     srcs = ["src/main.rs"],
     edition = "2024",
+)
+
+# Experimental rules_img sidecar. Its _img_* targets are intentionally outside
+# the production rules_oci naming, tags, archive, push, and deploy contracts.
+rust_binary_img_pilot(
+    name = "app",
+    binary = ":app",
 )
 
 rust_binary_oci_image(

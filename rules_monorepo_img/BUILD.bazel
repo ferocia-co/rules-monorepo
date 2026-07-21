@@ -1,0 +1,10 @@
+load(":config_test.bzl", "rules_img_pilot_config_tests")
+
+package(default_visibility = ["//visibility:public"])
+
+exports_files([
+    "config.bzl",
+    "defs.bzl",
+])
+
+rules_img_pilot_config_tests()

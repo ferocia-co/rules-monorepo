@@ -9,6 +9,7 @@ bazel_dep(name = "aspect_rules_js", version = "3.0.3")
 bazel_dep(name = "bazel_skylib", version = "1.9.0")
 bazel_dep(name = "llvm", version = "0.8.9")
 bazel_dep(name = "platforms", version = "1.1.0")
+bazel_dep(name = "rules_img", version = "0.3.17")
 bazel_dep(name = "rules_oci", version = "2.2.7")
 bazel_dep(name = "rules_nodejs", version = "6.7.4")
 bazel_dep(name = "rules_pkg", version = "1.0.1")
@@ -211,3 +212,16 @@ oci.pull(
     digest = "sha256:28d91bdce70ad09025ea901458fdd149259d8e05982ade79d4ef2c0d9470eb48",
 )
 use_repo(oci, "distroless_cc_linux_amd64", "distroless_cc_linux_arm64", "nginx_unprivileged_linux_amd64")
+
+# Side-by-side rules_img pilot base. This deliberately remains separate from
+# the production rules_oci repositories above so neither provider type nor the
+# existing OCI discovery/tag contracts change while the pilot is evaluated.
+rules_img_pull = use_repo_rule("@rules_img//img:pull.bzl", "pull")
+rules_img_pull(
+    name = "rules_img_distroless_cc_linux_arm64",
+    digest = "sha256:025509536b1e921fb8b0c5443a346a494d07f171d220782f65059cbaccc52aa9",
+    layer_handling = "shallow",
+    registry = "gcr.io",
+    repository = "distroless/cc-debian12",
+    tag = "nonroot",
+)
