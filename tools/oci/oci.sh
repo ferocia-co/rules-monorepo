@@ -20,12 +20,9 @@ Options:
                      Explicit split flags take precedence over this legacy alias.
   --bazel-jobs N     Maximum Bazel build jobs (default: 4).
   --push-jobs N      Maximum concurrent push processes (default: 4); push-only.
-  --push-execution MODE
-                     Push launcher execution: direct or bazel-run (default: direct).
-                     bazel-run is the rollback path; push-only.
   --compilation-mode MODE
                      Bazel compilation mode: fastbuild, dbg, or opt (default: opt).
-  --dry-run          Query and resolve launchers, but only print build/push operations.
+  --dry-run          Query normally, but print operations instead of running.
   -h, --help         Show this help.
 EOF
 }
@@ -70,8 +67,6 @@ legacy_jobs=4
 bazel_jobs=""
 push_jobs=""
 push_jobs_set=0
-push_execution="direct"
-push_execution_set=0
 compilation_mode="opt"
 dry_run=0
 
@@ -141,16 +136,6 @@ while [ "$#" -gt 0 ]; do
       push_jobs_set=1
       shift 2
       ;;
-    --push-execution)
-      [ "$#" -ge 2 ] || die "--push-execution requires a value"
-      push_execution="$2"
-      case "$push_execution" in
-        direct|bazel-run) ;;
-        *) die "--push-execution must be one of direct or bazel-run" ;;
-      esac
-      push_execution_set=1
-      shift 2
-      ;;
     --compilation-mode)
       [ "$#" -ge 2 ] || die "--compilation-mode requires a value"
       compilation_mode="$2"
@@ -183,7 +168,6 @@ push_jobs=${push_jobs:-$legacy_jobs}
 [ "$mode" = "push" ] || [ -z "$tags" ] || die "--tag is only valid in push mode"
 [ "$mode" = "push" ] || [ -z "$repository" ] || die "--repository is only valid in push mode"
 [ "$mode" = "push" ] || [ "$push_jobs_set" -eq 0 ] || die "--push-jobs is only valid in push mode"
-[ "$mode" = "push" ] || [ "$push_execution_set" -eq 0 ] || die "--push-execution is only valid in push mode"
 
 case "$scope" in
   //*|@*//*) ;;
@@ -284,11 +268,6 @@ fi
 
 build_selected_targets() {
   set -- build "--compilation_mode=$compilation_mode" "--jobs=$bazel_jobs"
-  if [ "$mode" = "push" ] && [ "$push_execution" = "direct" ]; then
-    # Direct launchers need their executable, manifest, and runfiles available
-    # locally even when a remote cache or executor served the build.
-    set -- "$@" --remote_download_outputs=all
-  fi
   old_ifs=$IFS
   IFS='
 '
@@ -309,131 +288,9 @@ if [ "$mode" = "build" ] || [ "$mode" = "tarball" ]; then
   exit 0
 fi
 
-labels_match() {
-  expected_label="$1"
-  resolved_label="$2"
-
-  [ "$expected_label" = "$resolved_label" ] && return 0
-  case "$expected_label" in
-    //*) [ "$resolved_label" = "@@${expected_label}" ] ;;
-    @*//*)
-      # cquery stringifies external labels canonically (for example
-      # @@repo+//pkg:target), while query may return an apparent @repo label.
-      # The selected query contains only the exact requested targets. Matching
-      # their package/target suffix is safe as long as it is unique; the caller
-      # rejects ambiguous matches before any launcher runs.
-      expected_suffix=${expected_label#*//}
-      resolved_suffix=${resolved_label#*//}
-      [ "$expected_suffix" = "$resolved_suffix" ]
-      ;;
-    *) return 1 ;;
-  esac
-}
-
-resolve_direct_launch_plan() {
-  cquery_expression="set("
-  old_ifs=$IFS
-  IFS='
-'
-  for target in $selected; do
-    cquery_expression="${cquery_expression}${target} "
-  done
-  IFS=$old_ifs
-  cquery_expression="${cquery_expression})"
-  starlark_expression='str(target.label) + "\t" + providers(target)["DefaultInfo"].files_to_run.executable.path'
-
-  if ! resolved_launchers=$("$bazel" cquery \
-    "--compilation_mode=$compilation_mode" \
-    --remote_download_outputs=all \
-    "$cquery_expression" \
-    --output=starlark \
-    "--starlark:expr=$starlark_expression"); then
-    die "failed to resolve push launchers with cquery"
-  fi
-  [ -n "$resolved_launchers" ] || die "cquery returned no push launchers"
-
-  if ! execution_root=$("$bazel" info execution_root); then
-    die "failed to resolve Bazel execution root"
-  fi
-  case "$execution_root" in
-    /*) ;;
-    *) die "Bazel execution root is not an absolute path: ${execution_root}" ;;
-  esac
-
-  tab=$(printf '\t')
-  launch_plan=""
-  resolved_count=0
-  IFS='
-'
-  for resolved_entry in $resolved_launchers; do
-    resolved_label=${resolved_entry%%"$tab"*}
-    executable_path=${resolved_entry#*"$tab"}
-    [ "$resolved_label" != "$resolved_entry" ] || die "invalid cquery launcher record: ${resolved_entry}"
-    [ -n "$resolved_label" ] || die "cquery returned a launcher without a target label"
-    [ -n "$executable_path" ] || die "cquery returned an empty launcher path for ${resolved_label}"
-    resolved_count=$((resolved_count + 1))
-  done
-
-  selected_count=0
-  for target in $selected; do
-    selected_count=$((selected_count + 1))
-    matching_count=0
-    matching_path=""
-    for resolved_entry in $resolved_launchers; do
-      resolved_label=${resolved_entry%%"$tab"*}
-      executable_path=${resolved_entry#*"$tab"}
-      if labels_match "$target" "$resolved_label"; then
-        matching_count=$((matching_count + 1))
-        matching_path=$executable_path
-      fi
-    done
-    [ "$matching_count" -gt 0 ] || die "cquery did not return a launcher for ${target}"
-    [ "$matching_count" -eq 1 ] || die "cquery returned multiple launchers for ${target}"
-
-    case "$matching_path" in
-      /*) launcher=$matching_path ;;
-      *) launcher="${execution_root}/${matching_path}" ;;
-    esac
-
-    for existing_entry in $launch_plan; do
-      existing_launcher=${existing_entry#*"$tab"}
-      [ "$existing_launcher" != "$launcher" ] || die "multiple push targets resolved to launcher ${launcher}"
-    done
-    if [ "$dry_run" -eq 0 ]; then
-      [ -f "$launcher" ] || die "push launcher does not exist after build: ${launcher}"
-      [ -x "$launcher" ] || die "push launcher is not executable after build: ${launcher}"
-    fi
-    launch_plan="$(append_line "$launch_plan" "${target}${tab}${launcher}")"
-  done
-  IFS=$old_ifs
-
-  [ "$resolved_count" -eq "$selected_count" ] || die "cquery returned ${resolved_count} launchers for ${selected_count} selected targets"
-
-  # Reject unexpected cquery results as well as missing ones. In particular,
-  # this catches apparent/canonical external-repository collisions safely.
-  IFS='
-'
-  for resolved_entry in $resolved_launchers; do
-    resolved_label=${resolved_entry%%"$tab"*}
-    matching_count=0
-    for target in $selected; do
-      if labels_match "$target" "$resolved_label"; then
-        matching_count=$((matching_count + 1))
-      fi
-    done
-    [ "$matching_count" -eq 1 ] || die "cquery result does not uniquely match a selected target: ${resolved_label}"
-  done
-  IFS=$old_ifs
-}
-
-print_push() {
+run_push() {
   push_target="$1"
-  launcher="$2"
-  if [ "$push_execution" = "direct" ]; then
-    set -- "$launcher"
-  else
-    set -- "$bazel" run "--compilation_mode=$compilation_mode" "$push_target" --
-  fi
+  set -- run "--compilation_mode=$compilation_mode" "$push_target" --
   if [ -n "$repository" ]; then
     set -- "$@" --repository "$repository"
   fi
@@ -444,30 +301,20 @@ print_push() {
     set -- "$@" --tag "$push_tag"
   done
   IFS=$old_ifs
-  if [ "$push_execution" = "direct" ]; then
-    printf '# direct push %s\n' "$push_target"
+  if [ "$dry_run" -eq 1 ]; then
+    print_command "$bazel" "$@"
+  else
+    "$bazel" "$@"
   fi
-  print_command "$@"
 }
 
 if [ "$dry_run" -eq 1 ]; then
-  if [ "$push_execution" = "direct" ]; then
-    resolve_direct_launch_plan
-  fi
   old_ifs=$IFS
   IFS='
 '
-  if [ "$push_execution" = "direct" ]; then
-    for plan_entry in $launch_plan; do
-      target=${plan_entry%%"$tab"*}
-      launcher=${plan_entry#*"$tab"}
-      print_push "$target" "$launcher"
-    done
-  else
-    for target in $selected; do
-      print_push "$target" ""
-    done
-  fi
+  for target in $selected; do
+    run_push "$target"
+  done
   IFS=$old_ifs
   exit 0
 fi
@@ -475,55 +322,11 @@ fi
 pids=""
 running=0
 status=0
-
-terminate_children() {
-  children=$pids
-  old_cleanup_ifs=$IFS
-  IFS=' '
-  for child in $children; do
-    kill -TERM "$child" 2>/dev/null || true
-  done
-  for child in $children; do
-    wait "$child" 2>/dev/null || true
-  done
-  IFS=$old_cleanup_ifs
-  pids=""
-}
-
-handle_signal() {
-  signal_status="$1"
-  trap - HUP INT TERM
-  terminate_children
-  exit "$signal_status"
-}
-
-trap 'handle_signal 129' HUP
-trap 'handle_signal 130' INT
-trap 'handle_signal 143' TERM
-
-schedule_push() {
-  push_target="$1"
-  launcher="$2"
-  if [ "$push_execution" = "direct" ]; then
-    set -- "$launcher"
-  else
-    set -- "$bazel" run "--compilation_mode=$compilation_mode" "$push_target" --
-  fi
-  if [ -n "$repository" ]; then
-    set -- "$@" --repository "$repository"
-  fi
-  old_schedule_ifs=$IFS
-  IFS='
+old_ifs=$IFS
+IFS='
 '
-  for push_tag in $tags; do
-    set -- "$@" --tag "$push_tag"
-  done
-  IFS=$old_schedule_ifs
-
-  # Start the external command from this shell instead of backgrounding a
-  # function. That makes $! the launcher/Bazel client itself on every supported
-  # shell, so signal cleanup never targets an intermediate subshell.
-  "$@" &
+for target in $selected; do
+  run_push "$target" &
   pid=$!
   if [ -z "$pids" ]; then
     pids=$pid
@@ -542,26 +345,7 @@ schedule_push() {
     esac
     running=$((running - 1))
   fi
-}
-
-if [ "$push_execution" = "direct" ]; then
-  resolve_direct_launch_plan
-fi
-
-old_ifs=$IFS
-IFS='
-'
-if [ "$push_execution" = "direct" ]; then
-  for plan_entry in $launch_plan; do
-    target=${plan_entry%%"$tab"*}
-    launcher=${plan_entry#*"$tab"}
-    schedule_push "$target" "$launcher"
-  done
-else
-  for target in $selected; do
-    schedule_push "$target" ""
-  done
-fi
+done
 IFS=$old_ifs
 
 while [ -n "$pids" ]; do
@@ -574,5 +358,4 @@ while [ -n "$pids" ]; do
     *) pids="" ;;
   esac
 done
-trap - HUP INT TERM
 exit "$status"
