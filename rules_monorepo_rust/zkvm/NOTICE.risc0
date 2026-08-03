@@ -1,0 +1,8 @@
+The minimal ProgramBinary encoder is derived from risc0-binfmt 3.0.5 and the
+checksum-pinned v1compat ELF is from risc0-zkos-v1compat 2.2.3, both Copyright
+RISC Zero, Inc. and licensed under the Apache License, Version 2.0. The complete
+license text is distributed alongside this notice as LICENSE.risc0.
+
+Upstream sources:
+https://crates.io/crates/risc0-binfmt/3.0.5
+https://crates.io/crates/risc0-zkos-v1compat/2.2.3

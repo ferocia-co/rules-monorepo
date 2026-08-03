@@ -193,7 +193,10 @@ case "$mode" in
     ;;
 esac
 
-query="attr(tags, '${query_tag}', ${scope})"
+# attr() accepts a regular expression and performs a partial match. Word
+# boundaries keep private/internal tags such as internal_image_manifest out of
+# discovery while matching the exact public contract tag in a string-list.
+query="attr(tags, '\\b${query_tag}\\b', ${scope})"
 discovered=""
 for target in $("$bazel" query "$query" --output=label); do
   case "$target" in

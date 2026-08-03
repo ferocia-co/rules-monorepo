@@ -1,0 +1,4 @@
+alias(
+    name = "normal_target",
+    actual = "@rules_monorepo//rules_monorepo:k8s_apply_helper",
+)

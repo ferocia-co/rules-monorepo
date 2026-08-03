@@ -17,6 +17,8 @@ def rust_binary_oci_image(
         binary,
         architecture = "amd64",
         base = None,
+        binary_name = None,
+        discoverable = True,
         entrypoint = None,
         load_format = "oci",
         package_dir = "/app",
@@ -29,12 +31,18 @@ def rust_binary_oci_image(
         user = "65532:65532",
         workdir = "/app",
         **kwargs):
-    """Generate a Linux OCI image pipeline for a Rust binary target."""
+    """Generate a Linux OCI image pipeline for a Rust binary target.
+
+    `binary_name` controls the destination basename and default entrypoint. Set
+    `discoverable` to False to omit standard OCI discovery tags without
+    removing any generated direct-use target.
+    """
 
     base_tags = list(tags or [])
     base_tags.extend(["manual", "oci"])
 
-    binary_name = _target_name(binary)
+    if binary_name == None:
+        binary_name = _target_name(binary)
     if binary_name == None:
         fail("binary must be a label string")
 
@@ -59,6 +67,7 @@ def rust_binary_oci_image(
         binary = ":" + linux_binary,
         binary_name = binary_name,
         base = base,
+        discoverable = discoverable,
         entrypoint = entrypoint,
         load_format = load_format,
         package_dir = package_dir,

@@ -28,14 +28,20 @@ jobs:
 
       - name: Validate Helper Script Syntax
         run: |
-          bash -n rules_monorepo/k8s/k8s_apply_helper.sh rules_monorepo_rust/private/cargo_audit_test.sh tools/oci/oci_test.sh
+          bash -n rules_monorepo/k8s/k8s_apply_helper.sh rules_monorepo_rust/private/cargo_audit_test.sh tests/zkvm_consumers/integration_test.sh tools/oci/discovery_e2e_test.sh tools/oci/oci_test.sh
           sh -n tools/oci/oci.sh tools/oci/fake_bazel.sh
 
       - name: Query Target Graph
         run: bazelisk query //...
 
-      - name: Test Cargo API
-        run: bazelisk test //rules_monorepo_rust:cargo_api_tests //rules_monorepo:oci_config_tests //tools/oci:oci_test
+      - name: Test Rust And OCI APIs
+        run: bazelisk test //rules_monorepo_rust/... //rules_monorepo:oci_config_tests //rules_monorepo:oci_macro_tests //tools/oci:oci_test
+
+      - name: Test OCI Discovery End To End
+        run: bash tools/oci/discovery_e2e_test.sh
+
+      - name: Test zkVM Consumer Opt In
+        run: bash tests/zkvm_consumers/integration_test.sh
 
       - name: Test Hermetic Cargo Audit
         run: bazelisk test //examples/cargo_workspace:cargo_audit
@@ -45,6 +51,25 @@ jobs:
 
       - name: Analyze Rust Deploy Example
         run: bazelisk build --nobuild //examples/rust_service:app_deploy.apply
+
+      - name: Build zkVM Guest Fixtures
+        run: |
+          bazelisk build \
+            //examples/zkvm_guest:risc0_guest \
+            //examples/zkvm_guest:sp1_guest
+
+      - name: Verify RISC0 C Toolchain Action
+        run: |
+          action="$(bazelisk aquery \
+            --include_artifacts=false \
+            'mnemonic("CppCompile", inputs("examples/zkvm_guest/src/native.c", deps(//examples/zkvm_guest:risc0_guest)))')"
+          grep -F -- 'riscv32-unknown-elf-gcc' <<<"${action}"
+          grep -F -- '-march=rv32im' <<<"${action}"
+          grep -F -- '-mabi=ilp32' <<<"${action}"
+          link="$(bazelisk aquery \
+            --include_artifacts=false \
+            'mnemonic("Rustc", deps(//examples/zkvm_guest:risc0_guest))')"
+          grep -F -- '-lstatic=risc0_native_fixture' <<<"${link}"
 
       - name: Build Representative OCI Images
         run: |

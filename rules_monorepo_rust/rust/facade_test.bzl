@@ -3,7 +3,9 @@
 load(
     ":cargo_defs.bzl",
     "RustWasmBindgenInfo",
+    "ZkvmGuestInfo",
     "cargo_build_script",
+    "risc0_guest",
     "rust_binary",
     "rust_clippy",
     "rust_doc",
@@ -16,10 +18,11 @@ load(
     "rust_wasm_bindgen_test",
     "rust_wasm_bindgen_toolchain",
     "rustfmt_test",
+    "sp1_guest",
     "transitioned_binary",
     "transitioned_binary_arm64",
 )
-load(":extensions.bzl", rust_wasm_bindgen_extension = "rust_wasm_bindgen")
+load(":extensions.bzl", "zkvm_toolchains", rust_wasm_bindgen_extension = "rust_wasm_bindgen")
 
 def rust_facade_load_test():
     # Referencing every binding makes accidental removal fail during package
@@ -42,6 +45,10 @@ def rust_facade_load_test():
         rustfmt_test,
         transitioned_binary,
         transitioned_binary_arm64,
+        ZkvmGuestInfo,
+        risc0_guest,
+        sp1_guest,
+        zkvm_toolchains,
     ]
     native.filegroup(
         name = "rust_facade_load_test",

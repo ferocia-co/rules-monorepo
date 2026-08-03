@@ -1,5 +1,6 @@
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load(":oci/config_test.bzl", "oci_config_tests")
+load(":oci/macro_test.bzl", "oci_macro_tests")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -11,9 +12,12 @@ exports_files([
     "k8s/defs.bzl",
     "oci/config.bzl",
     "oci/defs.bzl",
+    "oci/macro_test.bzl",
 ])
 
 oci_config_tests()
+
+oci_macro_tests()
 
 sh_binary(
     name = "k8s_apply_helper",

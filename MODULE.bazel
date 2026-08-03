@@ -1,6 +1,6 @@
 module(
     name = "rules_monorepo",
-    version = "2026.07.22.1",
+    version = "2026.08.03.1",
     compatibility_level = 1,
 )
 
@@ -9,6 +9,7 @@ bazel_dep(name = "aspect_rules_js", version = "3.0.3")
 bazel_dep(name = "bazel_skylib", version = "1.9.0")
 bazel_dep(name = "llvm", version = "0.8.9")
 bazel_dep(name = "platforms", version = "1.1.0")
+bazel_dep(name = "rules_cc", version = "0.2.19")
 bazel_dep(name = "rules_oci", version = "2.2.7")
 bazel_dep(name = "rules_nodejs", version = "6.7.4")
 bazel_dep(name = "rules_pkg", version = "1.0.1")
@@ -63,6 +64,23 @@ rust_toolchains.toolchain(
 )
 use_repo(rust_toolchains, "default_rust_toolchains")
 
+# zkVM guest compilers are official, checksum-pinned Linux x86_64 releases.
+# Keep this root's fixtures opt-in so depending on rules_monorepo does not
+# activate the vendor repositories or their toolchains transitively.
+zkvm = use_extension(
+    "//rules_monorepo_rust/zkvm:extensions.bzl",
+    "zkvm_toolchains",
+    dev_dependency = True,
+)
+use_repo(zkvm, "zkvm_toolchains")
+
+register_toolchains(
+    "@zkvm_toolchains//:risc0_cc_toolchain",
+    "@zkvm_toolchains//:risc0_rust_toolchain",
+    "@zkvm_toolchains//:risc0_support_toolchain",
+    "@zkvm_toolchains//:sp1_rust_toolchain",
+    dev_dependency = True,
+)
 register_toolchains("@default_rust_toolchains//:all")
 register_toolchains("@llvm//toolchain:all")
 

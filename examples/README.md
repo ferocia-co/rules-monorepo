@@ -7,7 +7,7 @@ This directory contains copy-pasteable examples for `rules_monorepo`.
 In a consumer repo `MODULE.bazel`:
 
 ```starlark
-bazel_dep(name = "rules_monorepo", version = "2026.07.22.1")
+bazel_dep(name = "rules_monorepo", version = "2026.08.03.1")
 
 archive_override(
     module_name = "rules_monorepo",
@@ -19,6 +19,8 @@ archive_override(
 
 See root `README.md` for `git_override` and `local_path_override` alternatives.
 See `rules_monorepo_rust/README.md` for Cargo-inferred Rust wrappers (`cargo_defs.bzl`) that avoid duplicated crate deps in BUILD files.
+The same guide documents checksum-pinned RISC0/SP1 toolchains and guest
+provider semantics.
 See `rules_monorepo_frontend/README.md` for pnpm/Svelte/Vite frontend rules.
 
 ## cargo_workspace
@@ -65,6 +67,19 @@ Analysis-only validation command:
 
 ```bash
 env -u BAZEL_OPTS bazelisk --ignore_all_rc_files --output_user_root=/tmp/rules-monorepo-bazel-root build --nobuild //examples/rust_service:app_deploy.apply
+```
+
+## zkvm_guest
+
+Path: `examples/zkvm_guest`
+
+Defines ordinary Rust guest binaries and wraps them with `risc0_guest` and
+`sp1_guest`. The RISC0 fixture also compiles a C library with the registered
+vendor GCC toolchain and links it into the transitioned Rust guest. Vendor
+compiler executables are Linux x86_64-only. Linux CI runs:
+
+```bash
+bazel build //examples/zkvm_guest:risc0_guest //examples/zkvm_guest:sp1_guest
 ```
 
 ## svelte_vite_app

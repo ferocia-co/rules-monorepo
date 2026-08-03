@@ -1,5 +1,6 @@
 """Cargo-inferred public API backed by rules_rs Cargo workspaces."""
 
+load("//rules_monorepo_rust/zkvm:defs.bzl", _ZkvmGuestInfo = "ZkvmGuestInfo", _risc0_guest = "risc0_guest", _sp1_guest = "sp1_guest")
 load(":rust/audit.bzl", _cargo_audit_test = "cargo_audit_test")
 load(":rust/cargo.bzl", _cargo_aliases = "cargo_aliases", _cargo_all_crate_deps = "cargo_all_crate_deps", _cargo_package = "cargo_package", _cargo_proc_macro_deps = "cargo_proc_macro_deps", _cargo_rust_binary = "cargo_rust_binary", _cargo_rust_library = "cargo_rust_library", _cargo_rust_proc_macro = "cargo_rust_proc_macro", _cargo_rust_test = "cargo_rust_test", _cargo_rust_test_suite = "cargo_rust_test_suite")
 load(":rust/defs.bzl", _rust_binary_oci_image = "rust_binary_oci_image", _transitioned_binary = "transitioned_binary", _transitioned_binary_arm64 = "transitioned_binary_arm64")
@@ -19,6 +20,9 @@ rust_wasm_bindgen = _rust_wasm_bindgen
 rust_wasm_bindgen_test = _rust_wasm_bindgen_test
 rust_wasm_bindgen_toolchain = _rust_wasm_bindgen_toolchain
 rustfmt_test = _rustfmt_test
+ZkvmGuestInfo = _ZkvmGuestInfo
+risc0_guest = _risc0_guest
+sp1_guest = _sp1_guest
 
 cargo_audit_test = _cargo_audit_test
 cargo_aliases = _cargo_aliases

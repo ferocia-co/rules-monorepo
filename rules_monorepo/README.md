@@ -26,7 +26,7 @@ Rules/macros:
 Install from GitHub (no BCR required) and pin a commit. `archive_override` is recommended for consumers/CI:
 
 ```starlark
-bazel_dep(name = "rules_monorepo", version = "2026.07.22.1")
+bazel_dep(name = "rules_monorepo", version = "2026.08.03.1")
 
 archive_override(
     module_name = "rules_monorepo",
@@ -64,6 +64,11 @@ Inputs:
 - `architecture`: `amd64` (default) or `arm64`
 - `base`: optional override; otherwise uses the matching shared, digest-pinned
   Debian 12 distroless `cc:nonroot` image
+- `binary_name`: destination basename inside the image; defaults to the target
+  name extracted from `binary`
+- `discoverable`: defaults to `True`; set `False` to retain the generated
+  targets while omitting their standard `oci_image`, `oci_tarball`, and
+  `oci_push` discovery tags
 - `entrypoint`: entrypoint list (defaults to `<package_dir>/<binary_name>`)
 - `package_dir`: path inside image where binary is copied (default `/app`)
 - `workdir`: default `/app`
@@ -92,6 +97,7 @@ binary_oci_image(
     name = "gateway",
     architecture = "arm64",
     binary = ":gateway_linux",
+    binary_name = "gateway",
     repository = "registry.example.com/trading/gateway",
     repo_tags = ["gateway:local"],
 )
@@ -116,7 +122,8 @@ The generated targets are `<name>_load` and `<name>_tarball`. `format` accepts
 `output` to choose the tar filename and `tags` to add tags alongside the
 standard `manual`, `oci`, `oci_load`, and `oci_tarball` tags. `image` must label
 a single manifest target such as `oci_image`; multi-platform `oci_image_index`
-targets are not supported.
+targets are not supported. Set `discoverable = False` to omit the public
+tarball's `oci_tarball` tag without removing either direct-use target.
 
 ## k8s_apply
 

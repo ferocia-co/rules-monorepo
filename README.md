@@ -5,7 +5,7 @@
 It provides:
 
 - `rules_monorepo`: language-agnostic rules for OCI image packaging and Kubernetes deployment
-- `rules_monorepo_rust`: Rust-specific rules for cross-platform builds layered on top of `rules_monorepo`
+- `rules_monorepo_rust`: Rust-specific rules for cross-platform and RISC0/SP1 guest builds layered on top of `rules_monorepo`
 - `rules_monorepo_frontend`: pnpm/Svelte/Vite checks, tests, and static frontend image packaging
 - `rules_monorepo_docs`: mdBook documentation builds from Bazel-managed sources
 
@@ -18,6 +18,7 @@ The design goal is composability: keep deploy primitives generic, then add langu
 - Render/apply/delete Kubernetes manifests from Bazel targets
 - Run pre-deploy image pushes and rollout checks from Bazel
 - Build Rust binaries for Linux AMD64/ARM64 from non-Linux hosts using transitions
+- Build RISC0 and SP1 guests using exact, checksum-pinned vendor compilers
 - Infer external and first-party Rust dependencies directly from Cargo workspaces and `Cargo.lock`
 - Provide Cargo, rustfmt, Clippy, rust-analyzer, and rust-src through Bazel
 - Run Cargo dependency audits against a pinned RustSec advisory DB
@@ -41,7 +42,7 @@ The design goal is composability: keep deploy primitives generic, then add langu
 Use this for reproducible pins without requiring `git` on the runner.
 
 ```starlark
-bazel_dep(name = "rules_monorepo", version = "2026.07.22.1")
+bazel_dep(name = "rules_monorepo", version = "2026.08.03.1")
 
 archive_override(
     module_name = "rules_monorepo",
@@ -60,7 +61,7 @@ Notes:
 Use this while commit history is being rewritten frequently and you do not want to recalculate archive integrity every time.
 
 ```starlark
-bazel_dep(name = "rules_monorepo", version = "2026.07.22.1")
+bazel_dep(name = "rules_monorepo", version = "2026.08.03.1")
 
 git_override(
     module_name = "rules_monorepo",
@@ -76,7 +77,7 @@ Notes:
 ### Option C: `local_path_override` (local development only)
 
 ```starlark
-bazel_dep(name = "rules_monorepo", version = "2026.07.22.1")
+bazel_dep(name = "rules_monorepo", version = "2026.08.03.1")
 local_path_override(module_name = "rules_monorepo", path = "../rules-monorepo")
 ```
 
@@ -110,7 +111,7 @@ download_mdbook(name = "mdbook_bin")
 
 ```starlark
 load("@rules_monorepo//rules_monorepo:defs.bzl", "binary_oci_image", "k8s_apply", "k8s_oci_deploy", "oci_archive")
-load("@rules_monorepo//rules_monorepo_rust:defs.bzl", "rust_binary_oci_image", "transitioned_binary_arm64")
+load("@rules_monorepo//rules_monorepo_rust:defs.bzl", "risc0_guest", "rust_binary_oci_image", "sp1_guest", "transitioned_binary_arm64")
 load("@rules_monorepo//rules_monorepo_rust:cargo_defs.bzl", "cargo_audit_test", "cargo_package", "cargo_rust_binary", "cargo_rust_library", "cargo_rust_proc_macro", "cargo_rust_test", "cargo_rust_test_suite")
 load("@rules_monorepo//rules_monorepo_frontend:defs.bzl", "frontend_static_site_oci_image", "pnpm_frontend_checks", "pnpm_playwright_test", "pnpm_svelte_vite_app")
 load("@rules_monorepo//rules_monorepo_docs:defs.bzl", "mdbook_docs")
@@ -165,9 +166,15 @@ k8s_oci_deploy(
 rust_binary_oci_image(
     name = "strategy_runner",
     binary = ":strategy_runner",
+    binary_name = "strategy-runner",
     repository = "registry.example.com/trading/strategy-runner",
 )
 ```
+
+`binary_name` changes the in-image basename/default entrypoint without renaming
+the Bazel target. `discoverable = False` retains direct image, tarball, and
+push targets while removing their standard discovery tags. See the component
+READMEs for the complete OCI and zkVM contracts.
 
 ## Cargo-Inferred Rust Dependencies
 

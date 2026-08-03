@@ -12,13 +12,15 @@ It provides:
 - Linux AMD64/ARM64 compatibility macros using rules_rs's canonical platforms
 - Rust binary-to-OCI helpers
 - pinned RustSec audit integration
+- transitioned RISC0 and SP1 guest compilation with checksum-pinned vendor
+  toolchains
 
 ## Configure a Cargo workspace
 
 Declare each independent Cargo workspace:
 
 ```starlark
-bazel_dep(name = "rules_monorepo", version = "2026.07.22.1")
+bazel_dep(name = "rules_monorepo", version = "2026.08.03.1")
 
 crate = use_extension(
     "@rules_rs//rs:extensions.bzl",
@@ -175,6 +177,8 @@ rust_binary_oci_image(
     name = "worker",
     architecture = "arm64",
     binary = ":worker",
+    binary_name = "worker-service",
+    discoverable = False,
     repository = "registry.example.com/example/worker",
     tarball_format = "docker",
 )
@@ -182,6 +186,12 @@ rust_binary_oci_image(
 
 Generated public targets are `:worker_image`, `:worker_image.digest`,
 `:worker_load`, `:worker_tarball`, and `:worker_push`.
+
+`binary_name` overrides the basename copied into `package_dir` and therefore
+the default entrypoint. Set `discoverable = False` for an exact/manual pipeline:
+all five targets remain directly usable, but the standard `oci_image`,
+`oci_tarball`, and `oci_push` tags are omitted. Both options preserve their
+existing defaults when unspecified.
 
 For an additional Docker/OCI load and tarball pair around one already-built
 image manifest, use the language-agnostic `oci_archive` macro from
@@ -193,3 +203,70 @@ Each invocation creates exactly one platform image. Defaults are AMD64, OCI
 load/tarball output, `/app`, UID/GID `65532:65532`, and the shared pinned
 Debian 12 distroless `cc:nonroot` base. Use `load_format = "docker"` for `fw`;
 use a distinct `tarball_format` when only a component tarball must be Docker.
+
+## RISC0 and SP1 guests
+
+The public `defs.bzl` and `cargo_defs.bzl` facades export `risc0_guest`,
+`sp1_guest`, and `ZkvmGuestInfo`. zkVM support is inert for transitive users.
+A consumer root opts in by importing the generated hub and registering its
+toolchains:
+
+```starlark
+zkvm = use_extension(
+    "@rules_monorepo//rules_monorepo_rust:extensions.bzl",
+    "zkvm_toolchains",
+)
+use_repo(zkvm, "zkvm_toolchains")
+
+register_toolchains(
+    "@zkvm_toolchains//:risc0_cc_toolchain",
+    "@zkvm_toolchains//:risc0_rust_toolchain",
+    "@zkvm_toolchains//:risc0_support_toolchain",
+    "@zkvm_toolchains//:sp1_rust_toolchain",
+)
+```
+
+The hub owns every asset-referencing toolchain target and resolves its pinned
+compiler and v1compat repositories privately. Consumers import only the hub;
+they do not need repository mappings for those implementation assets.
+
+Wrap normal Rust binary targets rather than invoking Cargo from an action:
+
+```starlark
+load(
+    "@rules_monorepo//rules_monorepo_rust:defs.bzl",
+    "risc0_guest",
+    "rust_binary",
+    "sp1_guest",
+)
+
+rust_binary(
+    name = "guest_program",
+    srcs = ["src/main.rs"],
+    edition = "2024",
+)
+risc0_guest(name = "guest_risc0", binary = ":guest_program")
+sp1_guest(name = "guest_sp1", binary = ":guest_program")
+```
+
+Both wrappers transition atomically to `opt`, `riscv32`, `os:none`, and a
+private proof-system constraint. `ZkvmGuestInfo` contains `elf`,
+`proof_system`, and `target_triple`. SP1 returns its transitioned ELF. RISC0
+combines the transitioned user ELF with the independently versioned v1compat
+2.2.3 kernel using the exact `risc0-binfmt` 3.0.5 `ProgramBinary` encoding.
+
+The compiler contract is RISC0 Rust `r0.1.88.0`, C toolchain `2024.01.05`, and
+`riscv32im-risc0-zkvm-elf`. The registered standard C toolchain propagates its
+checksum-pinned `riscv32-unknown-elf-gcc`, `ar`, `-march=rv32im`, and
+`-mabi=ilp32` contract to native dependencies and Cargo build scripts. SP1
+builder semantics are `5.2.4`, Rust
+`succinct-1.91.1`, and `riscv32im-succinct-zkvm-elf`. These official compiler
+executables run only on Linux x86_64. macOS supports package loading, unit
+tests, and analysis with the explicit analysis-only execution platform; actual
+guest builds run on Linux x86_64 CI/workers:
+
+```bash
+bazel build --nobuild \
+  --extra_execution_platforms=@rules_monorepo//rules_monorepo_rust/zkvm:linux_x86_64_exec_platform \
+  //examples/zkvm_guest:risc0_guest //examples/zkvm_guest:sp1_guest
+```

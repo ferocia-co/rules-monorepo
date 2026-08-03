@@ -1,0 +1,7 @@
+module(name = "zkvm_inert_consumer")
+
+bazel_dep(name = "rules_monorepo", version = "2026.08.03.1")
+local_path_override(
+    module_name = "rules_monorepo",
+    path = "../../..",
+)

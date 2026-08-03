@@ -22,9 +22,26 @@ Every push and pull request runs `.github/workflows/ci.yml`. Keep local checks a
 ```bash
 bazelisk query //...
 bazelisk build --nobuild //examples/rust_service:app_deploy.apply
-bazelisk test //rules_monorepo_rust:cargo_api_tests //rules_monorepo:oci_config_tests //tools/oci:oci_test
+bazelisk test //rules_monorepo_rust/... //rules_monorepo:oci_config_tests //rules_monorepo:oci_macro_tests //tools/oci:oci_test
 bazelisk build //examples/cargo_workspace/app //tools/rust:cargo //tools/rust:rust_analyzer_setup
 bazelisk build //examples/rust_service:app_tarball //examples/rust_service:app_arm64_tarball //examples/rust_service:app_component_oci_tarball
+```
+
+The official zkVM compilers are Linux x86_64 executables. Build the real guest
+fixtures only on Linux x86_64:
+
+```bash
+bazelisk build //examples/zkvm_guest:risc0_guest //examples/zkvm_guest:sp1_guest
+```
+
+On other hosts, validate their transitions and toolchain wiring with the
+analysis-only execution platform:
+
+```bash
+bazelisk build --nobuild \
+  --extra_execution_platforms=//rules_monorepo_rust/zkvm:linux_x86_64_exec_platform \
+  //examples/zkvm_guest:risc0_guest \
+  //examples/zkvm_guest:sp1_guest
 ```
 
 CI intentionally reads the checked-in `.bazelrc` so Aspect telemetry remains

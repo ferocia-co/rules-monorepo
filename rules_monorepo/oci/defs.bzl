@@ -33,6 +33,9 @@ def _dedupe_tags(tags):
             deduped.append(tag)
     return deduped
 
+def _discovery_tags(discoverable, *tags):
+    return list(tags) if discoverable else []
+
 def _default_repo_name(name):
     return name.replace("_", "-")
 
@@ -58,6 +61,7 @@ def _target_name(label):
 def oci_archive(
         name,
         image,
+        discoverable = True,
         format = "oci",
         output = None,
         repo_tags = None,
@@ -74,6 +78,9 @@ def oci_archive(
 
     `tarball_format` defaults to `format`; callers that only need one transport
     format should set `format` alone.
+
+    Set `discoverable` to `False` to omit the standard `oci_tarball` tag while
+    retaining all generated targets for direct use.
     """
 
     base_tags = _dedupe_tags(tags)
@@ -96,7 +103,7 @@ def oci_archive(
         oci_image_index(
             name = oci_transport_image,
             images = [image],
-            tags = base_tags + ["oci_transport_internal"],
+            tags = base_tags + ["internal_oci_transport"],
         )
 
     load_image = image
@@ -122,7 +129,7 @@ def oci_archive(
             image = tarball_image,
             format = config.tarball_format,
             repo_tags = repo_tags,
-            tags = base_tags + ["oci_tarball_internal"],
+            tags = base_tags + ["internal_tarball_transport"],
         )
 
     tarball_files = name + "_tarball_files"
@@ -130,7 +137,7 @@ def oci_archive(
         name = tarball_files,
         srcs = [":" + tarball_load_target],
         output_group = "tarball",
-        tags = base_tags + ["oci_tarball"],
+        tags = base_tags + _discovery_tags(discoverable, "oci_tarball"),
     )
 
     native.genrule(
@@ -138,7 +145,7 @@ def oci_archive(
         srcs = [":" + tarball_files],
         outs = [config.output],
         cmd = "cp $(location :{}) $@".format(tarball_files),
-        tags = base_tags + ["oci_tarball"],
+        tags = base_tags + _discovery_tags(discoverable, "oci_tarball"),
     )
 
 def binary_oci_image(
@@ -150,6 +157,7 @@ def binary_oci_image(
         annotations = None,
         cmd = None,
         created = None,
+        discoverable = True,
         entrypoint = None,
         env = None,
         exposed_ports = None,
@@ -173,6 +181,9 @@ def binary_oci_image(
       - <name>_load
       - <name>_tarball
       - <name>_push
+    Set `discoverable` to `False` to omit the standard `oci_image`,
+    `oci_tarball`, and `oci_push` tags while retaining all generated targets for
+    direct use.
     """
 
     base_tags = _dedupe_tags(tags)
@@ -186,6 +197,7 @@ def binary_oci_image(
         architecture = architecture,
         base = base,
         binary_name = binary_name,
+        discoverable = discoverable,
         entrypoint = entrypoint,
         load_format = load_format,
         package_dir = package_dir,
@@ -204,7 +216,7 @@ def binary_oci_image(
     _executable_file(
         name = binary_file,
         binary = binary,
-        tags = base_tags + ["oci_binary_internal"],
+        tags = base_tags + ["internal_binary_file"],
     )
 
     pkg_tar(
@@ -228,19 +240,19 @@ def binary_oci_image(
         user = config.user,
         volumes = volumes,
         workdir = config.workdir,
-        tags = base_tags + ["oci_image_internal"],
+        tags = base_tags + ["internal_image_manifest"],
     )
 
     native.alias(
         name = image,
         actual = ":" + image_arch,
-        tags = base_tags + ["oci_image"],
+        tags = base_tags + _discovery_tags(config.discoverable, "oci_image"),
     )
 
     native.filegroup(
         name = image + ".digest",
         srcs = [":" + image_arch + ".digest"],
-        tags = base_tags + ["oci_image"],
+        tags = base_tags + _discovery_tags(config.discoverable, "oci_image"),
     )
 
     if repo_tags == None:
@@ -248,6 +260,7 @@ def binary_oci_image(
 
     oci_archive(
         name = name,
+        discoverable = config.discoverable,
         image = ":" + image_arch,
         format = config.load_format,
         output = name + ".tar",
@@ -268,5 +281,5 @@ def binary_oci_image(
         image = ":" + image,
         repository = repository,
         remote_tags = remote_tags,
-        tags = base_tags + ["oci_push"],
+        tags = base_tags + _discovery_tags(config.discoverable, "oci_push"),
     )

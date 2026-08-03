@@ -10,6 +10,7 @@ def _amd64_defaults_impl(ctx):
     asserts.equals(env, "/app", config.package_dir)
     asserts.equals(env, "/app", config.workdir)
     asserts.equals(env, "65532:65532", config.user)
+    asserts.true(env, config.discoverable)
     asserts.equals(env, ["/app/worker"], config.entrypoint)
     asserts.equals(env, "oci", config.load_format)
     asserts.equals(env, "oci", config.tarball_format)
@@ -33,6 +34,17 @@ def _arm64_formats_impl(ctx):
     return unittest.end(env)
 
 arm64_formats_test = unittest.make(_arm64_formats_impl)
+
+def _non_discoverable_impl(ctx):
+    env = unittest.begin(ctx)
+    config = resolve_binary_oci_config(
+        binary_name = "worker",
+        discoverable = False,
+    )
+    asserts.false(env, config.discoverable)
+    return unittest.end(env)
+
+non_discoverable_test = unittest.make(_non_discoverable_impl)
 
 def _public_names_impl(ctx):
     env = unittest.begin(ctx)
@@ -81,5 +93,6 @@ def oci_config_tests():
         archive_config_test,
         archive_names_test,
         arm64_formats_test,
+        non_discoverable_test,
         public_names_test,
     )

@@ -1,0 +1,38 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@rules_monorepo//rules_monorepo_rust:defs.bzl", "risc0_guest", "rust_binary", "sp1_guest")
+
+package(default_visibility = ["//visibility:public"])
+
+rust_binary(
+    name = "guest",
+    srcs = ["src/main.rs"],
+    crate_name = "zkvm_guest_example",
+    edition = "2024",
+)
+
+cc_library(
+    name = "risc0_native_fixture",
+    srcs = ["src/native.c"],
+)
+
+rust_binary(
+    name = "risc0_guest_binary",
+    srcs = ["src/risc0_main.rs"],
+    crate_name = "risc0_zkvm_c_fixture",
+    edition = "2024",
+    deps = [":risc0_native_fixture"],
+)
+
+# Vendor compilers are official Linux x86_64 executables. Local macOS uses an
+# explicit analysis-only Linux execution platform with --nobuild.
+risc0_guest(
+    name = "risc0_guest",
+    binary = ":risc0_guest_binary",
+    tags = ["manual"],
+)
+
+sp1_guest(
+    name = "sp1_guest",
+    binary = ":guest",
+    tags = ["manual"],
+)

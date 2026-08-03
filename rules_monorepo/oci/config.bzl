@@ -51,6 +51,7 @@ def resolve_oci_archive_config(
 def resolve_binary_oci_config(
         architecture = "amd64",
         base = None,
+        discoverable = True,
         entrypoint = None,
         binary_name = None,
         package_dir = "/app",
@@ -61,6 +62,8 @@ def resolve_binary_oci_config(
     """Validates and resolves stable defaults for a single-platform image."""
     if architecture not in _DEFAULT_BASES:
         fail("architecture must be one of {}, got {!r}".format(sorted(_DEFAULT_BASES.keys()), architecture))
+    if type(discoverable) != "bool":
+        fail("discoverable must be a bool, got {!r}".format(discoverable))
     if load_format not in _FORMATS:
         fail("load_format must be one of {}, got {!r}".format(_FORMATS, load_format))
     if tarball_format == None:
@@ -80,6 +83,7 @@ def resolve_binary_oci_config(
     return struct(
         architecture = architecture,
         base = base,
+        discoverable = discoverable,
         entrypoint = entrypoint,
         load_format = load_format,
         package_dir = package_dir,

@@ -1,0 +1,18 @@
+load("@rules_monorepo//rules_monorepo_rust:defs.bzl", "risc0_guest", "rust_binary", "sp1_guest")
+
+rust_binary(
+    name = "guest",
+    srcs = ["src/main.rs"],
+    crate_name = "zkvm_consumer_guest",
+    edition = "2024",
+)
+
+risc0_guest(
+    name = "risc0_guest",
+    binary = ":guest",
+)
+
+sp1_guest(
+    name = "sp1_guest",
+    binary = ":guest",
+)

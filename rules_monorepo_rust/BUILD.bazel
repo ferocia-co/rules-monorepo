@@ -20,4 +20,5 @@ exports_files([
 ])
 
 cargo_api_tests()
+
 rust_facade_load_test()
