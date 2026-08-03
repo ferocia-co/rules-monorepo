@@ -8,18 +8,20 @@ trap 'rm -rf -- "${test_root}"' EXIT
 inert_workspace="${repo_root}/tests/zkvm_consumers/inert"
 opted_workspace="${repo_root}/tests/zkvm_consumers/opted_in"
 output_user_root="${test_root}/bazel"
+inert_output_base="${test_root}/inert-output-base"
+opted_output_base="${test_root}/opted-output-base"
 
 inert_bazel() {
     (
         cd "${inert_workspace}"
-        bazelisk --output_user_root="${output_user_root}" "$@" --lockfile_mode=off
+        bazelisk --output_user_root="${output_user_root}" --output_base="${inert_output_base}" "$@" --lockfile_mode=off
     )
 }
 
 opted_bazel() {
     (
         cd "${opted_workspace}"
-        bazelisk --output_user_root="${output_user_root}" "$@" --lockfile_mode=off
+        bazelisk --output_user_root="${output_user_root}" --output_base="${opted_output_base}" "$@" --lockfile_mode=off
     )
 }
 
