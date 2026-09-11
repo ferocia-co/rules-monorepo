@@ -3,11 +3,17 @@ load("@rules_monorepo//rules_monorepo_rust:defs.bzl", "risc0_guest", "rust_binar
 
 package(default_visibility = ["//visibility:public"])
 
+exports_files([
+    "Cargo.lock",
+    "Cargo.toml",
+])
+
 rust_binary(
     name = "guest",
     srcs = ["src/main.rs"],
     crate_name = "zkvm_guest_example",
     edition = "2024",
+    deps = ["@zkvm_guest_crates//:sp1-zkvm"],
 )
 
 cc_library(
@@ -20,7 +26,10 @@ rust_binary(
     srcs = ["src/risc0_main.rs"],
     crate_name = "risc0_zkvm_c_fixture",
     edition = "2024",
-    deps = [":risc0_native_fixture"],
+    deps = [
+        ":risc0_native_fixture",
+        "@zkvm_guest_crates//:risc0-zkvm",
+    ],
 )
 
 # Vendor compilers are official Linux x86_64 executables. Local macOS uses an

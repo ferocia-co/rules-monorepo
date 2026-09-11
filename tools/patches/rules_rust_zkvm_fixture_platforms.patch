@@ -1,0 +1,31 @@
+diff --git a/rust/platform/BUILD.bazel b/rust/platform/BUILD.bazel
+--- a/rust/platform/BUILD.bazel
++++ b/rust/platform/BUILD.bazel
+@@ -5,6 +5,27 @@
+ package(default_visibility = ["//visibility:public"])
+ 
+ declare_config_settings()
++
++# Development-only Cargo resolution aliases for the rules_monorepo fixtures.
++# The compiler triples retain -elf, but their Rust target_env/target_abi are
++# empty. Omitting that format suffix gives the resolver the actual cfg values.
++config_setting(
++    name = "riscv32im-risc0-zkvm",
++    constraint_values = [
++        "@@//rules_monorepo_rust/zkvm:risc0",
++        "@platforms//cpu:riscv32",
++        "@platforms//os:none",
++    ],
++)
++
++config_setting(
++    name = "riscv32im-succinct-zkvm",
++    constraint_values = [
++        "@@//rules_monorepo_rust/zkvm:sp1",
++        "@platforms//cpu:riscv32",
++        "@platforms//os:none",
++    ],
++)
+ 
+ # WASI Preview version constraint settings
+ #

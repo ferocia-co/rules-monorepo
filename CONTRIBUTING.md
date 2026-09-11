@@ -28,7 +28,9 @@ bazelisk build //examples/rust_service:app_tarball //examples/rust_service:app_a
 ```
 
 The official zkVM compilers are Linux x86_64 executables. Build the real guest
-fixtures only on Linux x86_64:
+fixtures only on Linux x86_64. CI also checks that each transitioned user ELF
+has a nonzero entry address and a defined `_start`, so removing an SDK runtime
+cannot silently leave a linker-only fixture:
 
 ```bash
 bazelisk build //examples/zkvm_guest:risc0_guest //examples/zkvm_guest:sp1_guest

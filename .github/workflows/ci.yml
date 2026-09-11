@@ -58,6 +58,25 @@ jobs:
             //examples/zkvm_guest:risc0_guest \
             //examples/zkvm_guest:sp1_guest
 
+      - name: Verify Guest Runtime Entrypoints
+        run: |
+          check_entrypoint() {
+            readelf --file-header "$1" | awk '
+              /Entry point address:/ { if ($4 ~ /^0x0+$/) exit 1; found = 1 }
+              END { if (!found) exit 1 }
+            '
+            readelf --symbols --wide "$1" | awk '
+              $8 == "_start" && $7 != "UND" { found = 1 }
+              END { if (!found) exit 1 }
+            '
+          }
+          risc0_elf="$(bazelisk cquery --output=files \
+            'filter("^//examples/zkvm_guest:risc0_guest_binary$", deps(//examples/zkvm_guest:risc0_guest))')"
+          sp1_elf="$(bazelisk cquery --output=files \
+            'filter("^//examples/zkvm_guest:guest$", deps(//examples/zkvm_guest:sp1_guest))')"
+          check_entrypoint "${risc0_elf}"
+          check_entrypoint "${sp1_elf}"
+
       - name: Verify RISC0 C Toolchain Action
         run: |
           action="$(bazelisk aquery \

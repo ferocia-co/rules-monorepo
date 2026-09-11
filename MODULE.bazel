@@ -53,6 +53,19 @@ rules_rust.patch(
 )
 use_repo(rules_rust, "rules_rust")
 
+# Only this root's guest fixtures need vendor Cargo cfg aliases. This dev-only
+# usage is ignored when rules_monorepo is a dependency, even though the same
+# canonical extension also has the ordinary compatibility patches above.
+fixture_rules_rust = use_extension(
+    "@rules_rs//rs:rules_rust.bzl",
+    "rules_rust",
+    dev_dependency = True,
+)
+fixture_rules_rust.patch(
+    patches = ["//tools/patches:rules_rust_zkvm_fixture_platforms.patch"],
+    strip = 1,
+)
+
 # This fallback keeps consumers zero-config. A consumer can own its Rust version
 # by registering a uniquely named toolchain from this canonical extension; root
 # registrations take priority and also select the Cargo used by developer tools.
@@ -139,7 +152,46 @@ example_crates.from_cargo(
         "x86_64-unknown-linux-gnu",
     ],
 )
-use_repo(example_crates, "example_crates")
+# Official guest runtimes, with host client/prover defaults disabled. SDK 3.0.5
+# selects RISC0 guest Rust r0.1.88.0; SP1 matches the 5.2.4 builder contract.
+# These cfg aliases omit -elf because both vendor compilers report an empty
+# target_env/target_abi. Compiler/toolchain triples keep their exact vendor names.
+example_crates.from_cargo(
+    name = "zkvm_guest_crates",
+    cargo_lock = "//examples/zkvm_guest:Cargo.lock",
+    cargo_toml = "//examples/zkvm_guest:Cargo.toml",
+    platform_triples = [
+        "aarch64-apple-darwin",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-unknown-linux-gnu",
+        "riscv32im-risc0-zkvm",
+        "riscv32im-succinct-zkvm",
+    ],
+    use_legacy_rules_rust_platforms = True,
+)
+# rules_rs 0.0.110 does not evaluate target_has_atomic predicates. Each supported
+# fixture host and both vendor targets support 8/16/32/64/pointer atomics, so the
+# locked arkworks 0.5.0 manifests require ahash (no default or extra features).
+# Add that missing edge only for this fixture hub; the unused fnv edge is benign.
+example_crates.annotation(
+    crate = "ark-crypto-primitives",
+    version = "0.5.0",
+    repositories = ["zkvm_guest_crates"],
+    deps = ["@zkvm_guest_crates//:ahash-0.8.12"],
+)
+example_crates.annotation(
+    crate = "ark-ec",
+    version = "0.5.0",
+    repositories = ["zkvm_guest_crates"],
+    deps = ["@zkvm_guest_crates//:ahash-0.8.12"],
+)
+example_crates.annotation(
+    crate = "ark-poly",
+    version = "0.5.0",
+    repositories = ["zkvm_guest_crates"],
+    deps = ["@zkvm_guest_crates//:ahash-0.8.12"],
+)
+use_repo(example_crates, "example_crates", "zkvm_guest_crates")
 
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(

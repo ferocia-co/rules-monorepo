@@ -1,0 +1,21 @@
+[package]
+name = "zkvm-guest-fixtures"
+version = "0.1.0"
+edition = "2024"
+# Resolve dependencies compatible with the older of the two vendor compilers.
+rust-version = "1.88"
+publish = false
+
+[[bin]]
+name = "risc0-guest-fixture"
+path = "src/risc0_main.rs"
+
+[[bin]]
+name = "sp1-guest-fixture"
+path = "src/main.rs"
+
+[dependencies]
+# Activate the exact arkworks atomic-target edge for the fixture annotations.
+ahash = { version = "=0.8.12", default-features = false }
+risc0-zkvm = { version = "=3.0.5", default-features = false, features = ["std"] }
+sp1-zkvm = { version = "=5.2.4", default-features = false }

@@ -51,10 +51,23 @@ inert_bazel build //:normal_target @rules_monorepo//tools/rust:rust_analyzer_set
 inert_bazel run //:native_rust
 
 inert_output_base="$(inert_bazel info output_base)"
-if find "${inert_output_base}/external" -maxdepth 1 -type d \
-    \( -name '*risc0_zkvm*' -o -name '*sp1_zkvm*' -o -name '*zkvm_toolchains*' \) \
+if find "${inert_output_base}/external" -maxdepth 1 \
+    \( -type d -o -type l \) \
+    \( -name '*risc0_zkvm*' -o -name '*sp1_zkvm*' -o -name '*zkvm_toolchains*' -o -name '*zkvm_guest_crates*' \) \
     -print -quit | grep -q .; then
     echo "zkVM repositories were activated without consumer opt-in" >&2
+    exit 1
+fi
+
+# The shared compatibility patches must apply transitively; fixture-only
+# platform aliases must not, despite using the same canonical extension.
+inert_facades=("${inert_output_base}"/external/*rules_rust*/rust/platform/BUILD.bazel)
+if [[ ! -f "${inert_facades[0]}" ]]; then
+    echo "inert Rust consumer did not instantiate the shared facade" >&2
+    exit 1
+fi
+if grep -Eq 'riscv32im-(risc0|succinct)-zkvm' "${inert_facades[@]}"; then
+    echo "fixture-only Rust platform patch leaked into a consumer" >&2
     exit 1
 fi
 

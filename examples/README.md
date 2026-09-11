@@ -73,10 +73,22 @@ env -u BAZEL_OPTS bazelisk --ignore_all_rc_files --output_user_root=/tmp/rules-m
 
 Path: `examples/zkvm_guest`
 
-Defines ordinary Rust guest binaries and wraps them with `risc0_guest` and
-`sp1_guest`. The RISC0 fixture also compiles a C library with the registered
-vendor GCC toolchain and links it into the transitioned Rust guest. Vendor
-compiler executables are Linux x86_64-only. Linux CI runs:
+Builds guests with the official `risc0-zkvm` 3.0.5 and `sp1-zkvm` 5.2.4
+runtime entry macros, then wraps them with `risc0_guest` and `sp1_guest`.
+The SDKs provide stack/runtime initialization and guest finalization; an
+ordinary standalone `fn main` does not provide that startup contract. The RISC0
+fixture also compiles a C library with the registered vendor GCC toolchain and
+links it into the transitioned Rust guest. Its native call remains in the guest.
+
+The SDK Cargo manifest and lockfile are development-only, with host client/prover
+defaults disabled. Regenerate their lock with
+`bazelisk run //tools/rust:cargo -- generate-lockfile --manifest-path examples/zkvm_guest/Cargo.toml`;
+the manifest's Rust 1.88 compatibility limit matches the older vendor compiler.
+The root's fixture-only platform aliases and arkworks dependency annotations
+accommodate rules_rs 0.0.110's cfg resolver; none activate for ordinary consumers.
+
+Vendor compiler executables are Linux x86_64-only. Linux CI builds and links the
+guests, but does not execute them in a prover. It runs:
 
 ```bash
 bazel build //examples/zkvm_guest:risc0_guest //examples/zkvm_guest:sp1_guest

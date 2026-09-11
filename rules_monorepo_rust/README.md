@@ -236,7 +236,12 @@ The hub owns every asset-referencing toolchain target and resolves its pinned
 compiler and v1compat repositories privately. Consumers import only the hub;
 they do not need repository mappings for those implementation assets.
 
-Wrap normal Rust binary targets rather than invoking Cargo from an action:
+The wrappers select toolchains and package guest artifacts. Each binary must
+also depend on its vendor SDK and use the SDK's entry macro (`risc0_zkvm::guest::entry!`
+or `sp1_zkvm::entrypoint!`, with `#![no_main]`). These SDKs supply `_start`, stack
+initialization, and guest finalization. The wrappers do not add a runtime to a
+plain `fn main`, and importing the toolchain hub does not fetch SDK dependencies.
+Resolve SDK dependencies in the consumer's Cargo hub, then wrap its Bazel binaries:
 
 ```starlark
 load(
@@ -247,12 +252,19 @@ load(
 )
 
 rust_binary(
-    name = "guest_program",
-    srcs = ["src/main.rs"],
+    name = "risc0_program",
+    srcs = ["src/risc0_main.rs"],
     edition = "2024",
+    deps = ["@guest_crates//:risc0-zkvm"],
 )
-risc0_guest(name = "guest_risc0", binary = ":guest_program")
-sp1_guest(name = "guest_sp1", binary = ":guest_program")
+rust_binary(
+    name = "sp1_program",
+    srcs = ["src/sp1_main.rs"],
+    edition = "2024",
+    deps = ["@guest_crates//:sp1-zkvm"],
+)
+risc0_guest(name = "guest_risc0", binary = ":risc0_program")
+sp1_guest(name = "guest_sp1", binary = ":sp1_program")
 ```
 
 Both wrappers transition atomically to `opt`, `riscv32`, `os:none`, and a
