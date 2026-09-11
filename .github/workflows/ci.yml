@@ -66,6 +66,8 @@ jobs:
           grep -F -- 'riscv32-unknown-elf-gcc' <<<"${action}"
           grep -F -- '-march=rv32im' <<<"${action}"
           grep -F -- '-mabi=ilp32' <<<"${action}"
+          grep -F -- '-no-canonical-prefixes' <<<"${action}"
+          grep -F -- '-fno-canonical-system-headers' <<<"${action}"
           link="$(bazelisk aquery \
             --include_artifacts=false \
             'mnemonic("Rustc", deps(//examples/zkvm_guest:risc0_guest))')"

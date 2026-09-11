@@ -31,6 +31,9 @@ def _risc0_cc_toolchain_config_impl(ctx):
                         "-mabi=ilp32",
                         "-ffunction-sections",
                         "-fdata-sections",
+                        # Keep vendor builtin headers relative to the toolchain.
+                        "-no-canonical-prefixes",
+                        "-fno-canonical-system-headers",
                     ]),
                 ],
             ),
@@ -52,6 +55,10 @@ def _risc0_cc_toolchain_config_impl(ctx):
         abi_libc_version = "unknown",
         abi_version = "ilp32",
         compiler = "gcc",
+        cxx_builtin_include_directories = [
+            "%crosstool_top%/lib/gcc/riscv32-unknown-elf/13.2.0/include",
+            "%crosstool_top%/riscv32-unknown-elf/include",
+        ],
         features = [target_flags],
         host_system_name = "x86_64-unknown-linux-gnu",
         target_cpu = "riscv32",
