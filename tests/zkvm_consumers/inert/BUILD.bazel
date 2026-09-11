@@ -1,4 +1,12 @@
+load("@rules_monorepo//rules_monorepo_rust:defs.bzl", "rust_binary")
+
 alias(
     name = "normal_target",
     actual = "@rules_monorepo//rules_monorepo:k8s_apply_helper",
+)
+
+rust_binary(
+    name = "native_rust",
+    srcs = ["src/main.rs"],
+    edition = "2024",
 )

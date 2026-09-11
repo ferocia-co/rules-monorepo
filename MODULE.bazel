@@ -1,25 +1,24 @@
 module(
     name = "rules_monorepo",
-    version = "2026.08.03.1",
+    version = "2026.09.11.1",
     compatibility_level = 1,
 )
 
 bazel_dep(name = "aspect_bazel_lib", version = "2.22.5")
 bazel_dep(name = "aspect_rules_js", version = "3.0.3")
 bazel_dep(name = "bazel_skylib", version = "1.9.0")
-bazel_dep(name = "llvm", version = "0.8.9")
+bazel_dep(name = "llvm", version = "0.8.18")
 bazel_dep(name = "platforms", version = "1.1.0")
-bazel_dep(name = "rules_cc", version = "0.2.19")
+bazel_dep(name = "rules_cc", version = "0.2.22")
 bazel_dep(name = "rules_oci", version = "2.2.7")
 bazel_dep(name = "rules_nodejs", version = "6.7.4")
 bazel_dep(name = "rules_pkg", version = "1.0.1")
 # This is the shared default. A consumer root may select a newer rules_rs or a
 # compatible fork with Bazel's single_version/archive/git/local_path overrides.
-bazel_dep(name = "rules_rs", version = "0.0.96")
-bazel_dep(name = "rules_shell", version = "0.6.1")
+bazel_dep(name = "rules_rs", version = "0.0.110")
+bazel_dep(name = "rules_shell", version = "0.8.0")
 
-# Keep the filtered macOS SDK aligned with rules_rs v0.0.96's own integration
-# workspace so transitive native crates can use its upstream-tested frameworks.
+# Keep the filtered macOS SDK frameworks available to transitive native crates.
 osx = use_extension("@llvm//extensions:osx.bzl", "osx")
 osx.frameworks(names = [
     "AudioToolbox",
@@ -40,9 +39,9 @@ osx.frameworks(names = [
     "SystemConfiguration",
 ])
 
-# These compatibility patches restore the rust-analyzer setup binaries missing
-# from rules_rs v0.0.96 and keep rustc from forwarding redundant C++ runtime
-# driver selectors. A consumer replacing rules_rs with an incompatible
+# Keep VSCode launchers at the workspace root and prevent rustc from forwarding
+# redundant C++ runtime driver selectors. These patches target rules_rs v0.0.110's
+# rules_rust facade. A consumer replacing rules_rs with an incompatible
 # rules_rust can replace this generated repository through override_repo.
 rules_rust = use_extension("@rules_rs//rs:rules_rust.bzl", "rules_rust")
 rules_rust.patch(
@@ -81,7 +80,7 @@ register_toolchains(
     "@zkvm_toolchains//:sp1_rust_toolchain",
     dev_dependency = True,
 )
-register_toolchains("@default_rust_toolchains//:all")
+register_toolchains("@default_rust_toolchains//...")
 register_toolchains("@llvm//toolchain:all")
 
 # cargo-audit is selected for the execution platform by //tools/rust. Official

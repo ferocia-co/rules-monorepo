@@ -5,6 +5,12 @@ as the single source of Rust toolchains and Cargo dependency metadata. Consumers
 keep normal Cargo workspaces and committed `Cargo.lock` files; BUILD targets do
 not repeat Cargo dependencies.
 
+The shared default is `rules_rs` 0.0.110, whose Linux Rust compiler repositories
+use checksum-pinned zlib packages from Launchpad with Ubuntu snapshot fallbacks.
+Consumers that pin `rules_rs` must select this version and refresh any private
+patches against it. The compatibility facade keeps VSCode launchers under the
+workspace-root `.rules_rust_analyzer/` directory.
+
 It provides:
 
 - Rust 1.97.0, Cargo, rustfmt, Clippy, rust-src, and rust-analyzer from Bazel
@@ -20,7 +26,7 @@ It provides:
 Declare each independent Cargo workspace:
 
 ```starlark
-bazel_dep(name = "rules_monorepo", version = "2026.08.03.1")
+bazel_dep(name = "rules_monorepo", version = "2026.09.11.1")
 
 crate = use_extension(
     "@rules_rs//rs:extensions.bzl",
@@ -121,7 +127,7 @@ Common upstream Rust rules are re-exported by the public `defs.bzl` and
 `cargo_defs.bzl` facades, so consumer BUILD files do not load `@rules_rust`
 directly. Binary, library, proc-macro, test, and build-script APIs come through
 rules_rs's official facades. Clippy/doc/rustfmt, test-suite, and wasm-bindgen
-rule APIs remain direct compatibility exports for rules_rs v0.0.96.
+rule APIs remain direct compatibility exports for rules_rs v0.0.110.
 
 `transitioned_binary` and `transitioned_binary_arm64` are thin compatibility
 macros over Aspect's `platform_transition_binary`. They target rules_rs's
