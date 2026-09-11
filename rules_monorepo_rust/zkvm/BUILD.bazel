@@ -1,3 +1,4 @@
+load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
 load("@rules_monorepo//rules_monorepo_rust:defs.bzl", "rust_binary", "rust_test")
 load(":defs_test.bzl", "zkvm_rule_tests")
 
@@ -14,6 +15,25 @@ exports_files([
     "private/support.bzl",
     "private/zkvm_hub.BUILD.tpl",
 ])
+
+# Internal selector carried through exec transitions so proc macros and build
+# scripts use the same compiler build as their guest. Ordinary targets keep "".
+string_flag(
+    name = "guest_compiler",
+    build_setting_default = "",
+    scope = "universal",
+    values = ["", "risc0", "sp1"],
+)
+
+config_setting(
+    name = "risc0_host_compiler",
+    flag_values = {":guest_compiler": "risc0"},
+)
+
+config_setting(
+    name = "sp1_host_compiler",
+    flag_values = {":guest_compiler": "sp1"},
+)
 
 constraint_setting(name = "proof_system")
 

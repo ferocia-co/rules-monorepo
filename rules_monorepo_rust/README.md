@@ -227,14 +227,23 @@ use_repo(zkvm, "zkvm_toolchains")
 register_toolchains(
     "@zkvm_toolchains//:risc0_cc_toolchain",
     "@zkvm_toolchains//:risc0_rust_toolchain",
+    "@zkvm_toolchains//:risc0_host_rust_toolchain",
     "@zkvm_toolchains//:risc0_support_toolchain",
     "@zkvm_toolchains//:sp1_rust_toolchain",
+    "@zkvm_toolchains//:sp1_host_rust_toolchain",
 )
 ```
 
 The hub owns every asset-referencing toolchain target and resolves its pinned
 compiler and v1compat repositories privately. Consumers import only the hub;
 they do not need repository mappings for those implementation assets.
+
+The guest transitions also select matching native vendor toolchains for proc
+macros and build scripts. Those toolchains use the compiler and host standard
+library from the same pinned vendor archive, preventing Rust metadata ABI
+mismatches. Their selector persists through execution configurations and is unset
+for ordinary binaries, so registering them does not change native Rust 1.97
+builds. Register both host entries shown above when using guest SDKs.
 
 The wrappers select toolchains and package guest artifacts. Each binary must
 also depend on its vendor SDK and use the SDK's entry macro (`risc0_zkvm::guest::entry!`

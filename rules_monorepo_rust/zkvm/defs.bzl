@@ -9,6 +9,7 @@ ZkvmGuestInfo = provider(
     },
 )
 
+_GUEST_COMPILER = str(Label("//rules_monorepo_rust/zkvm:guest_compiler"))
 _RISC0_PLATFORM = str(Label("//rules_monorepo_rust/zkvm:risc0_guest_platform"))
 _SP1_PLATFORM = str(Label("//rules_monorepo_rust/zkvm:sp1_guest_platform"))
 _RISC0_SUPPORT_TOOLCHAIN = str(Label("//rules_monorepo_rust/zkvm:risc0_support_toolchain_type"))
@@ -17,12 +18,14 @@ def _risc0_transition_impl(_settings, _attr):
     return {
         "//command_line_option:compilation_mode": "opt",
         "//command_line_option:platforms": _RISC0_PLATFORM,
+        _GUEST_COMPILER: "risc0",
     }
 
 def _sp1_transition_impl(_settings, _attr):
     return {
         "//command_line_option:compilation_mode": "opt",
         "//command_line_option:platforms": _SP1_PLATFORM,
+        _GUEST_COMPILER: "sp1",
     }
 
 _risc0_transition = transition(
@@ -31,6 +34,7 @@ _risc0_transition = transition(
     outputs = [
         "//command_line_option:compilation_mode",
         "//command_line_option:platforms",
+        _GUEST_COMPILER,
     ],
 )
 
@@ -40,6 +44,7 @@ _sp1_transition = transition(
     outputs = [
         "//command_line_option:compilation_mode",
         "//command_line_option:platforms",
+        _GUEST_COMPILER,
     ],
 )
 

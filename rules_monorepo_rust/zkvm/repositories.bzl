@@ -28,6 +28,12 @@ rust_stdlib_filegroup(
     srcs = glob(["lib/rustlib/{target_triple}/lib/**"]),
 )
 
+# Proc macros must use the native stdlib from this exact vendor compiler build.
+rust_stdlib_filegroup(
+    name = "host_rust_std",
+    srcs = glob(["lib/rustlib/x86_64-unknown-linux-gnu/lib/**"]),
+)
+
 filegroup(
     name = "rustc_lib",
     srcs = glob([

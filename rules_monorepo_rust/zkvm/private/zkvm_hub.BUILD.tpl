@@ -107,6 +107,87 @@ toolchain(
     toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
 )
 
+# Native proc macros and build scripts must share the guest compiler's exact
+# build identity. This toolchain is ineligible outside its guest transition.
+rust_toolchain(
+    name = "risc0_host_rust_toolchain_impl",
+    binary_ext = "",
+    default_edition = "2024",
+    dylib_ext = ".so",
+    exec_triple = "x86_64-unknown-linux-gnu",
+    extra_exec_rustc_flags = [],
+    extra_rustc_flags = [],
+    process_wrapper = "@rules_rust//util/process_wrapper",
+    rust_doc = "@risc0_zkvm_rust//:bin/rustdoc_tool_binary",
+    rust_std = "@risc0_zkvm_rust//:host_rust_std",
+    rustc = "@risc0_zkvm_rust//:bin/rustc",
+    rustc_lib = "@risc0_zkvm_rust//:rustc_lib",
+    staticlib_ext = ".a",
+    stdlib_linkflags = [],
+    target_triple = "x86_64-unknown-linux-gnu",
+    version = "r0.1.88.0",
+)
+
+toolchain(
+    name = "risc0_host_rust_toolchain",
+    exec_compatible_with = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+    ],
+    target_compatible_with = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+    ],
+    target_settings = [
+        "@rules_monorepo//rules_monorepo_rust/zkvm:risc0_host_compiler",
+        # Let the ordinary bootstrap toolchain build the independent wrapper.
+        "@rules_rust//rust/private:bootstrapped",
+    ],
+    toolchain = ":risc0_host_rust_toolchain_impl",
+    toolchain_type = "@rules_rust//rust:toolchain_type",
+)
+
+# Native proc macros and build scripts must share the guest compiler's exact
+# build identity. This toolchain is ineligible outside its guest transition.
+rust_toolchain(
+    name = "sp1_host_rust_toolchain_impl",
+    binary_ext = "",
+    default_edition = "2024",
+    dylib_ext = ".so",
+    exec_triple = "x86_64-unknown-linux-gnu",
+    extra_exec_rustc_flags = [],
+    extra_rustc_flags = [],
+    process_wrapper = "@rules_rust//util/process_wrapper",
+    # SP1 has no rustdoc; as above, this placeholder serves compilation only.
+    rust_doc = "@risc0_zkvm_rust//:bin/rustdoc_tool_binary",
+    rust_std = "@sp1_zkvm_rust//:host_rust_std",
+    rustc = "@sp1_zkvm_rust//:bin/rustc",
+    rustc_lib = "@sp1_zkvm_rust//:rustc_lib",
+    staticlib_ext = ".a",
+    stdlib_linkflags = [],
+    target_triple = "x86_64-unknown-linux-gnu",
+    version = "succinct-1.91.1",
+)
+
+toolchain(
+    name = "sp1_host_rust_toolchain",
+    exec_compatible_with = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+    ],
+    target_compatible_with = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+    ],
+    target_settings = [
+        "@rules_monorepo//rules_monorepo_rust/zkvm:sp1_host_compiler",
+        # Let the ordinary bootstrap toolchain build the independent wrapper.
+        "@rules_rust//rust/private:bootstrapped",
+    ],
+    toolchain = ":sp1_host_rust_toolchain_impl",
+    toolchain_type = "@rules_rust//rust:toolchain_type",
+)
+
 risc0_support_toolchain(
     name = "risc0_support_toolchain_impl",
     program_binary = "@rules_monorepo//rules_monorepo_rust/zkvm:risc0_program_binary",
