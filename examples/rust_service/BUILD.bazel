@@ -1,5 +1,5 @@
 load("@rules_monorepo//rules_monorepo:defs.bzl", "k8s_oci_deploy", "oci_archive")
-load("@rules_monorepo//rules_monorepo_rust:defs.bzl", "rust_binary", "rust_binary_oci_image")
+load("@rules_monorepo//rules_monorepo_rust:defs.bzl", "rust_binary", "rust_binary_oci_image", "rustfmt_direct")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -7,6 +7,11 @@ rust_binary(
     name = "app",
     srcs = ["src/main.rs"],
     edition = "2024",
+)
+
+rustfmt_direct(
+    name = "app_rustfmt",
+    targets = [":app"],
 )
 
 rust_binary_oci_image(

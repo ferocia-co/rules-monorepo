@@ -85,7 +85,7 @@ defaults disabled. Regenerate their lock with
 `bazelisk run //tools/rust:cargo -- generate-lockfile --manifest-path examples/zkvm_guest/Cargo.toml`;
 the manifest's Rust 1.88 compatibility limit matches the older vendor compiler.
 The root's fixture-only platform aliases and arkworks dependency annotations
-accommodate rules_rs 0.0.110's cfg resolver; none activate for ordinary consumers.
+accommodate rules_rs 0.0.112's cfg resolver; none activate for ordinary consumers.
 
 Vendor compiler executables are Linux x86_64-only. Linux CI builds and links the
 guests, but does not execute them in a prover. It runs:

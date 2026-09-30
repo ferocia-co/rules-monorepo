@@ -5,7 +5,7 @@ as the single source of Rust toolchains and Cargo dependency metadata. Consumers
 keep normal Cargo workspaces and committed `Cargo.lock` files; BUILD targets do
 not repeat Cargo dependencies.
 
-The shared default is `rules_rs` 0.0.110, whose Linux Rust compiler repositories
+The shared default is `rules_rs` 0.0.112, whose Linux Rust compiler repositories
 use checksum-pinned zlib packages from Launchpad with Ubuntu snapshot fallbacks.
 Consumers that pin `rules_rs` must select this version and refresh any private
 patches against it. The compatibility facade keeps VSCode launchers under the
@@ -13,7 +13,7 @@ workspace-root `.rules_rust_analyzer/` directory.
 
 It provides:
 
-- Rust 1.97.0, Cargo, rustfmt, Clippy, rust-src, and rust-analyzer from Bazel
+- Rust 1.98.1, Cargo, rustfmt, Clippy, rust-src, and rust-analyzer from Bazel
 - Cargo-inferred library, binary, proc-macro, and test macros
 - Linux AMD64/ARM64 compatibility macros using rules_rs's canonical platforms
 - Rust binary-to-OCI helpers
@@ -26,7 +26,7 @@ It provides:
 Declare each independent Cargo workspace:
 
 ```starlark
-bazel_dep(name = "rules_monorepo", version = "2026.09.11.1")
+bazel_dep(name = "rules_monorepo", version = "2026.09.30.1")
 
 crate = use_extension(
     "@rules_rs//rs:extensions.bzl",
@@ -127,7 +127,7 @@ Common upstream Rust rules are re-exported by the public `defs.bzl` and
 `cargo_defs.bzl` facades, so consumer BUILD files do not load `@rules_rust`
 directly. Binary, library, proc-macro, test, and build-script APIs come through
 rules_rs's official facades. Clippy/doc/rustfmt, test-suite, and wasm-bindgen
-rule APIs remain direct compatibility exports for rules_rs v0.0.110.
+rule APIs remain direct compatibility exports for rules_rs v0.0.112.
 
 `transitioned_binary` and `transitioned_binary_arm64` are thin compatibility
 macros over Aspect's `platform_transition_binary`. They target rules_rs's
@@ -150,6 +150,22 @@ build --@rules_rust//rust/settings:rustfmt.toml=//:rustfmt.toml
 ```
 
 This makes Bazel formatting and `cargo fmt` share the same configuration.
+Use `rustfmt_direct` for a CI formatting gate over explicitly listed Rust
+targets:
+
+```starlark
+load("@rules_monorepo//rules_monorepo_rust:defs.bzl", "rustfmt_direct")
+
+rustfmt_direct(
+    name = "rustfmt_check",
+    targets = [":worker", ":worker_test"],
+)
+```
+
+Build that target alongside the ordinary CI checks. It uses the pinned
+`rustfmt_aspect` on each listed target, including its direct source files,
+without traversing the targets' dependency graphs. Use upstream
+`rustfmt_test` when transitive formatting coverage is specifically needed.
 Disable Aspect repository telemetry explicitly in every root `.bazelrc`
 because `.bazelrc` policy is not inherited through module dependencies:
 
@@ -242,7 +258,7 @@ The guest transitions also select matching native vendor toolchains for proc
 macros and build scripts. Those toolchains use the compiler and host standard
 library from the same pinned vendor archive, preventing Rust metadata ABI
 mismatches. Their selector persists through execution configurations and is unset
-for ordinary binaries, so registering them does not change native Rust 1.97
+for ordinary binaries, so registering them does not change native Rust 1.98.1
 builds. Register both host entries shown above when using guest SDKs.
 
 The wrappers select toolchains and package guest artifacts. Each binary must

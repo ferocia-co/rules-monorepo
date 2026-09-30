@@ -12,6 +12,7 @@ exports_files([
     "rust/audit.bzl",
     "rust/cargo.bzl",
     "rust/cargo_test.bzl",
+    "rust/direct_rustfmt.bzl",
     "rust/defs.bzl",
     "rust/facade_test.bzl",
     "rust/oci.bzl",

@@ -46,7 +46,7 @@ opted_bazel() {
 }
 
 inert_bazel query //...
-inert_bazel mod graph | grep -F 'rules_rs@0.0.110'
+inert_bazel mod graph | grep -F 'rules_rs@0.0.112'
 inert_bazel build //:normal_target @rules_monorepo//tools/rust:rust_analyzer_setup
 inert_bazel run //:native_rust
 

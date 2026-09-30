@@ -1,21 +1,20 @@
 module(
     name = "rules_monorepo",
-    version = "2026.09.11.1",
-    compatibility_level = 1,
+    version = "2026.09.30.1",
 )
 
 bazel_dep(name = "aspect_bazel_lib", version = "2.22.5")
-bazel_dep(name = "aspect_rules_js", version = "3.0.3")
-bazel_dep(name = "bazel_skylib", version = "1.9.0")
-bazel_dep(name = "llvm", version = "0.8.18")
+bazel_dep(name = "aspect_rules_js", version = "3.5.0")
+bazel_dep(name = "bazel_skylib", version = "1.9.2")
+bazel_dep(name = "llvm", version = "0.8.24")
 bazel_dep(name = "platforms", version = "1.1.0")
-bazel_dep(name = "rules_cc", version = "0.2.22")
-bazel_dep(name = "rules_oci", version = "2.2.7")
-bazel_dep(name = "rules_nodejs", version = "6.7.4")
-bazel_dep(name = "rules_pkg", version = "1.0.1")
+bazel_dep(name = "rules_cc", version = "0.2.25")
+bazel_dep(name = "rules_oci", version = "2.3.0")
+bazel_dep(name = "rules_nodejs", version = "6.7.5")
+bazel_dep(name = "rules_pkg", version = "1.3.0")
 # This is the shared default. A consumer root may select a newer rules_rs or a
 # compatible fork with Bazel's single_version/archive/git/local_path overrides.
-bazel_dep(name = "rules_rs", version = "0.0.110")
+bazel_dep(name = "rules_rs", version = "0.0.112")
 bazel_dep(name = "rules_shell", version = "0.8.0")
 
 # Keep the filtered macOS SDK frameworks available to transitive native crates.
@@ -40,7 +39,7 @@ osx.frameworks(names = [
 ])
 
 # Keep VSCode launchers at the workspace root and prevent rustc from forwarding
-# redundant C++ runtime driver selectors. These patches target rules_rs v0.0.110's
+# redundant C++ runtime driver selectors. These patches target rules_rs v0.0.112's
 # rules_rust facade. A consumer replacing rules_rs with an incompatible
 # rules_rust can replace this generated repository through override_repo.
 rules_rust = use_extension("@rules_rs//rs:rules_rust.bzl", "rules_rust")
@@ -72,7 +71,7 @@ fixture_rules_rust.patch(
 rust_toolchains = use_extension("@rules_rs//rs/toolchains:module_extension.bzl", "toolchains")
 rust_toolchains.toolchain(
     edition = "2024",
-    version = "1.97.0",
+    version = "1.98.1",
 )
 use_repo(rust_toolchains, "default_rust_toolchains")
 
@@ -171,7 +170,7 @@ example_crates.from_cargo(
     ],
     use_legacy_rules_rust_platforms = True,
 )
-# rules_rs 0.0.110 does not evaluate target_has_atomic predicates. Each supported
+# rules_rs 0.0.112 does not evaluate target_has_atomic predicates. Each supported
 # fixture host and both vendor targets support 8/16/32/64/pointer atomics, so the
 # locked arkworks 0.5.0 manifests require ahash (no default or extra features).
 # Add that missing edge only for this fixture hub; the unused fnv edge is benign.

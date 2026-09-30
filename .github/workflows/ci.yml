@@ -18,10 +18,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Bazel
-        uses: bazel-contrib/setup-bazel@0.18.0
+        uses: bazel-contrib/setup-bazel@c5acdfb288317d0b5c0bbd7a396a3dc868bb0f86 # v0.19.0
 
       - name: Show Bazel Version
         run: bazelisk version
@@ -47,7 +47,7 @@ jobs:
         run: bazelisk test //examples/cargo_workspace:cargo_audit
 
       - name: Build Cargo Workspace And Developer Tools
-        run: bazelisk build //examples/cargo_workspace/app //tools/rust:cargo //tools/rust:cargo_audit //tools/rust:rust_analyzer_setup //tools/oci
+        run: bazelisk build //examples/cargo_workspace/app //examples/rust_service:app_rustfmt //tools/rust:cargo //tools/rust:cargo_audit //tools/rust:rust_analyzer_setup //tools/oci
 
       - name: Analyze Rust Deploy Example
         run: bazelisk build --nobuild //examples/rust_service:app_deploy.apply
