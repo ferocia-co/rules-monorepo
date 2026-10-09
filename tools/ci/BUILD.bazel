@@ -1,0 +1,29 @@
+load("@rules_python//python:py_binary.bzl", "py_binary")
+load("@rules_python//python:py_library.bzl", "py_library")
+load("@rules_python//python:py_test.bzl", "py_test")
+
+package(default_visibility = ["//visibility:public"])
+
+py_library(
+    name = "test_discovery",
+    srcs = [
+        "rules_monorepo_ci/__init__.py",
+        "rules_monorepo_ci/test_discovery.py",
+    ],
+    imports = ["."],
+)
+
+py_binary(
+    name = "test_targets",
+    srcs = ["test_targets.py"],
+    # Nested Bazel commands detect bytecode writes as repository changes.
+    env = {"PYTHONDONTWRITEBYTECODE": "1"},
+    deps = [":test_discovery"],
+)
+
+py_test(
+    name = "test_discovery_test",
+    srcs = ["test_discovery_test.py"],
+    env = {"PYTHONDONTWRITEBYTECODE": "1"},
+    deps = [":test_discovery"],
+)

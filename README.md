@@ -42,7 +42,7 @@ The design goal is composability: keep deploy primitives generic, then add langu
 Use this for reproducible pins without requiring `git` on the runner.
 
 ```starlark
-bazel_dep(name = "rules_monorepo", version = "2026.09.30.1")
+bazel_dep(name = "rules_monorepo", version = "2026.10.09.1")
 
 archive_override(
     module_name = "rules_monorepo",
@@ -61,7 +61,7 @@ Notes:
 Use this while commit history is being rewritten frequently and you do not want to recalculate archive integrity every time.
 
 ```starlark
-bazel_dep(name = "rules_monorepo", version = "2026.09.30.1")
+bazel_dep(name = "rules_monorepo", version = "2026.10.09.1")
 
 git_override(
     module_name = "rules_monorepo",
@@ -77,7 +77,7 @@ Notes:
 ### Option C: `local_path_override` (local development only)
 
 ```starlark
-bazel_dep(name = "rules_monorepo", version = "2026.09.30.1")
+bazel_dep(name = "rules_monorepo", version = "2026.10.09.1")
 local_path_override(module_name = "rules_monorepo", path = "../rules-monorepo")
 ```
 
@@ -279,6 +279,27 @@ an exact full label, generated target name, logical name, then the stripped
 `_oci` shorthand; ambiguity at the first matching tier is an error. Repeated
 runtime tags are deduplicated. In push mode, `--repository` overrides the
 repository for every selected image.
+
+## Test discovery
+
+Discover all workspace test rules, including `manual` targets, and run each environment:
+
+```bash
+bazel run @rules_monorepo//tools/ci:test_targets -- check --exclusions ci/test_exclusions.json
+bazel run @rules_monorepo//tools/ci:test_targets -- ordinary --exclusions ci/test_exclusions.json -- --test_output=errors
+bazel run @rules_monorepo//tools/ci:test_targets -- docker --exclusions ci/test_exclusions.json
+```
+
+The exclusions file maps exact labels to nonempty reasons, for example
+`{"//api:live_test": "Contacts a deployed service."}`. Omit `--exclusions` when nothing is excluded.
+Stale entries and unexcluded `live` or `requires-credentials` targets fail validation.
+`requires-docker` tests run in the Docker group and require `no-sandbox` and `no-remote-exec`.
+Both groups run on macOS and Linux using the consumer's Bazel command (`--bazel`, default `bazelisk`)
+and workspace (`--workspace`, default `BUILD_WORKSPACE_DIRECTORY` or the current directory).
+
+Python tooling can depend on `@rules_monorepo//tools/ci:test_discovery` and import
+`rules_monorepo_ci.test_discovery` to load exclusions, build selection queries, or discover targets.
+Set `PYTHONDONTWRITEBYTECODE=1` on Python callers that invoke Bazel so imports leave symlinked runfiles untouched.
 
 ## Frontend Rules
 
