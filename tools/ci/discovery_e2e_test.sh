@@ -18,10 +18,14 @@ EOF
 cp "${rules_root}/.bazelversion" "${consumer}/.bazelversion"
 cat > "${consumer}/BUILD.bazel" <<'EOF'
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load("@rules_monorepo//rules_monorepo/ci:defs.bzl", "ci_runner")
 sh_test(name = "manual_test", srcs = ["ordinary.sh"], tags = ["manual"])
 sh_test(name = "docker_test", srcs = ["docker.sh"], tags = ["requires-docker", "no-sandbox", "no-remote-exec"])
 sh_test(name = "live_test", srcs = ["live.sh"], tags = ["live"])
+genrule(name = "check", srcs = ["input.txt"], outs = ["checked.txt"], cmd = "cat $(SRCS) > $@")
+ci_runner(name = "ci", exclusions = "ci/excluded.json", build_targets = ["//:check"])
 EOF
+printf 'CHECK_BUILT\n' > "${consumer}/input.txt"
 printf '#!/bin/sh\necho TEST_RAN_ORDINARY\n' > "${consumer}/ordinary.sh"
 printf '#!/bin/sh\necho TEST_RAN_DOCKER\n' > "${consumer}/docker.sh"
 printf '#!/bin/sh\nexit 1\n' > "${consumer}/live.sh"
@@ -56,9 +60,43 @@ if grep -Eq 'TEST_RAN_(ORDINARY|FRESH)' <<< "${docker}"; then
   exit 1
 fi
 
+run_ci() {
+  bazelisk run //:ci -- "$@"
+}
+printf '# Consumer documentation\n' > README.md
+plan="$(run_ci plan --changed-file README.md)"
+grep -F '"docs_only": true' <<< "${plan}"
+docs="$(PLAN_JSON="${plan}" run_ci checks -- --test_output=all 2>&1)"
+if grep -Fq TEST_RAN_ <<< "${docs}"; then
+  echo 'docs-only plan executed tests' >&2
+  exit 1
+fi
+plan="$(run_ci plan --changed-file ordinary.sh)"
+grep -F '"ordinary_tests": ["//:manual_test"]' <<< "${plan}"
+selected="$(PLAN_JSON="${plan}" run_ci checks -- --test_output=all 2>&1)"
+grep -F TEST_RAN_ORDINARY <<< "${selected}"
+if grep -Eq 'TEST_RAN_(DOCKER|FRESH)' <<< "${selected}"; then
+  echo 'selective plan executed unrelated tests' >&2
+  exit 1
+fi
+empty_docker="$(PLAN_JSON="${plan}" run_ci components)"
+grep -F 'No Docker tests selected.' <<< "${empty_docker}"
+full="$(PLAN_JSON="${plan}" run_ci checks --full -- --test_output=all 2>&1)"
+grep -F TEST_RAN_FRESH <<< "${full}"
+grep -F CHECK_BUILT bazel-bin/checked.txt
+if grep -Fq TEST_RAN_DOCKER <<< "${full}"; then
+  echo 'full ordinary gate executed Docker tests' >&2
+  exit 1
+fi
+
 printf '{}\n' > ci/excluded.json
 if failure="$(run_discovery check 2>&1)"; then
   echo 'an unexplained live-test exclusion passed validation' >&2
+  exit 1
+fi
+grep -F '//:live_test: add a reason in' <<< "${failure}"
+if failure="$(run_ci plan --changed-file README.md 2>&1)"; then
+  echo 'docs-only plan bypassed exclusion validation' >&2
   exit 1
 fi
 grep -F '//:live_test: add a reason in' <<< "${failure}"

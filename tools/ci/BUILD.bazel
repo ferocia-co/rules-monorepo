@@ -5,6 +5,30 @@ load("@rules_python//python:py_test.bzl", "py_test")
 package(default_visibility = ["//visibility:public"])
 
 py_library(
+    name = "runner",
+    srcs = [
+        "rules_monorepo_ci/runner.py",
+        "rules_monorepo_ci/selection.py",
+    ],
+    imports = ["."],
+    deps = [":test_discovery"],
+)
+
+py_test(
+    name = "selection_test",
+    srcs = ["selection_test.py"],
+    env = {"PYTHONDONTWRITEBYTECODE": "1"},
+    deps = [":runner"],
+)
+
+py_test(
+    name = "runner_test",
+    srcs = ["runner_test.py"],
+    env = {"PYTHONDONTWRITEBYTECODE": "1"},
+    deps = [":runner"],
+)
+
+py_library(
     name = "test_discovery",
     srcs = [
         "rules_monorepo_ci/__init__.py",
