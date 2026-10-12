@@ -42,7 +42,7 @@ The design goal is composability: keep deploy primitives generic, then add langu
 Use this for reproducible pins without requiring `git` on the runner.
 
 ```starlark
-bazel_dep(name = "rules_monorepo", version = "2026.10.09.1")
+bazel_dep(name = "rules_monorepo", version = "2026.10.12.1")
 
 archive_override(
     module_name = "rules_monorepo",
@@ -61,7 +61,7 @@ Notes:
 Use this while commit history is being rewritten frequently and you do not want to recalculate archive integrity every time.
 
 ```starlark
-bazel_dep(name = "rules_monorepo", version = "2026.10.09.1")
+bazel_dep(name = "rules_monorepo", version = "2026.10.12.1")
 
 git_override(
     module_name = "rules_monorepo",
@@ -77,7 +77,7 @@ Notes:
 ### Option C: `local_path_override` (local development only)
 
 ```starlark
-bazel_dep(name = "rules_monorepo", version = "2026.10.09.1")
+bazel_dep(name = "rules_monorepo", version = "2026.10.12.1")
 local_path_override(module_name = "rules_monorepo", path = "../rules-monorepo")
 ```
 
@@ -300,6 +300,31 @@ and workspace (`--workspace`, default `BUILD_WORKSPACE_DIRECTORY` or the current
 Python tooling can depend on `@rules_monorepo//tools/ci:test_discovery` and import
 `rules_monorepo_ci.test_discovery` to load exclusions, build selection queries, or discover targets.
 Set `PYTHONDONTWRITEBYTECODE=1` on Python callers that invoke Bazel so imports leave symlinked runfiles untouched.
+
+For affected-target selection and execution, declare the consumer's CI groups:
+
+```starlark
+load("@rules_monorepo//rules_monorepo/ci:defs.bzl", "ci_runner")
+
+ci_runner(
+    name = "ci",
+    exclusions = "ci/test_exclusions.json",
+    build_targets = ["//:checks"],
+    always_test_targets = ["//:audit"],
+    clippy_root = "//:clippy",
+    oci_root = "//:images",
+    full_check_paths = ["ci", "tools"],
+)
+```
+
+Run `bazel run //:ci -- plan` to select from the checked-out GitHub merge commit;
+`--changed-file PATH` also supports local selection. Unreadable diffs, build changes,
+query failures, and sources outside the CI graph select the full gate. Undeclared
+documentation skips execution; declared documentation follows its dependencies.
+The plan exports `PLAN_JSON` and `docs_only` through GitHub's environment/output files.
+Run the `checks`, `components`, and `images` stages with that plan, or use `--full`.
+Pass the consumer's wrapper with `--bazel` and extra stage arguments after `--`.
+The runner calls Bazel directly; no Justfile is required in the consumer.
 
 ## Frontend Rules
 
