@@ -313,3 +313,5 @@ bazel build --nobuild \
   --extra_execution_platforms=@rules_monorepo//rules_monorepo_rust/zkvm:linux_x86_64_exec_platform \
   //examples/zkvm_guest:risc0_guest //examples/zkvm_guest:sp1_guest
 ```
+
+[Shared test discovery](../README.md#test-discovery) includes Rust unit, integration, and doc-test targets.

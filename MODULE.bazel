@@ -1,6 +1,6 @@
 module(
     name = "rules_monorepo",
-    version = "2026.09.30.1",
+    version = "2026.10.09.1",
 )
 
 bazel_dep(name = "aspect_bazel_lib", version = "2.22.5")
@@ -12,6 +12,7 @@ bazel_dep(name = "rules_cc", version = "0.2.25")
 bazel_dep(name = "rules_oci", version = "2.3.0")
 bazel_dep(name = "rules_nodejs", version = "6.7.5")
 bazel_dep(name = "rules_pkg", version = "1.3.0")
+bazel_dep(name = "rules_python", version = "1.8.0")
 # This is the shared default. A consumer root may select a newer rules_rs or a
 # compatible fork with Bazel's single_version/archive/git/local_path overrides.
 bazel_dep(name = "rules_rs", version = "0.0.112")

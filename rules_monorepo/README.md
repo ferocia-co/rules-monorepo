@@ -173,3 +173,5 @@ Run:
 bazel run //path/to:gateway.apply
 bazel run //path/to:gateway.delete
 ```
+
+For automatic test discovery and environment routing, see [test discovery](../README.md#test-discovery).
