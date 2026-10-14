@@ -1,0 +1,61 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//rules_monorepo_rust:defs.bzl", "cargo_build_script", "rust_binary", "rust_library", "rust_test", "rustfmt_test")
+load(":native_link_data_test.bzl", "native_directory", "native_link_input_test")
+
+package(default_testonly = True)
+
+cc_library(
+    name = "native_archive",
+    srcs = ["native.c"],
+)
+
+native_directory(
+    name = "native_directory",
+    archive = ":native_archive",
+)
+
+cargo_build_script(
+    name = "build_script",
+    srcs = ["build.rs"],
+    build_script_env = {"NATIVE_DIRECTORY": "$(execpath :native_directory)"},
+    data = [":native_directory"],
+    edition = "2021",
+)
+
+rust_library(
+    name = "library",
+    srcs = ["lib.rs"],
+    crate_name = "native_link_data",
+    deps = [":build_script"],
+    edition = "2021",
+)
+
+rust_binary(
+    name = "consumer",
+    srcs = ["consumer.rs"],
+    deps = [":library"],
+    edition = "2021",
+    rustc_flags = ["-Dlinker_messages"],
+)
+
+rust_test(
+    name = "consumer_test",
+    srcs = ["consumer.rs"],
+    deps = [":library"],
+    edition = "2021",
+    rustc_flags = ["-Dlinker_messages"],
+)
+
+[
+    native_link_input_test(
+        name = target + "_inputs_test",
+        native_data = ":native_directory",
+        target_under_test = ":" + target,
+    )
+    for target in ["consumer", "consumer_test"]
+]
+
+rustfmt_test(
+    name = "rustfmt_test",
+    targets = [":library", ":consumer", ":consumer_test"],
+)

@@ -42,7 +42,7 @@ The design goal is composability: keep deploy primitives generic, then add langu
 Use this for reproducible pins without requiring `git` on the runner.
 
 ```starlark
-bazel_dep(name = "rules_monorepo", version = "2026.10.14.1")
+bazel_dep(name = "rules_monorepo", version = "2026.10.14.2")
 
 archive_override(
     module_name = "rules_monorepo",
@@ -61,7 +61,7 @@ Notes:
 Use this while commit history is being rewritten frequently and you do not want to recalculate archive integrity every time.
 
 ```starlark
-bazel_dep(name = "rules_monorepo", version = "2026.10.14.1")
+bazel_dep(name = "rules_monorepo", version = "2026.10.14.2")
 
 git_override(
     module_name = "rules_monorepo",
@@ -77,7 +77,7 @@ Notes:
 ### Option C: `local_path_override` (local development only)
 
 ```starlark
-bazel_dep(name = "rules_monorepo", version = "2026.10.14.1")
+bazel_dep(name = "rules_monorepo", version = "2026.10.14.2")
 local_path_override(module_name = "rules_monorepo", path = "../rules-monorepo")
 ```
 
