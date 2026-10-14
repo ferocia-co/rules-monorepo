@@ -3,5 +3,6 @@ package(default_visibility = ["//visibility:public"])
 exports_files([
     "rules_rust_drop_redundant_runtime_selectors.patch",
     "rules_rust_rust_analyzer_setup.patch",
+    "rules_rust_transitive_build_script_data.patch",
     "rules_rust_zkvm_fixture_platforms.patch",
 ])

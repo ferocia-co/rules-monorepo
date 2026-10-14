@@ -1,0 +1,11 @@
+diff --git a/rust/private/rustc.bzl b/rust/private/rustc.bzl
+--- a/rust/private/rustc.bzl
++++ b/rust/private/rustc.bzl
+@@ -3091,6 +3091,7 @@
+         if dep_build_info.out_dir:
+             direct_inputs.append(dep_build_info.out_dir)
+         transitive_inputs.append(dep_build_info.compile_data)
++        transitive_inputs.append(getattr(dep_build_info, "build_script_data", depset()))
+     out_dir_compile_inputs = depset(
+         direct_inputs,
+         transitive = transitive_inputs,

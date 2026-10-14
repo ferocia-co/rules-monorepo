@@ -1,6 +1,6 @@
 module(
     name = "rules_monorepo",
-    version = "2026.10.14.1",
+    version = "2026.10.14.2",
 )
 
 bazel_dep(name = "aspect_bazel_lib", version = "2.22.5")
@@ -39,15 +39,15 @@ osx.frameworks(names = [
     "SystemConfiguration",
 ])
 
-# Keep VSCode launchers at the workspace root and prevent rustc from forwarding
-# redundant C++ runtime driver selectors. These patches target rules_rs v0.0.112's
-# rules_rust facade. A consumer replacing rules_rs with an incompatible
-# rules_rust can replace this generated repository through override_repo.
+# These compatibility patches target rules_rs v0.0.112's rules_rust facade.
+# A consumer replacing it with an incompatible fork can override the generated
+# repository through override_repo.
 rules_rust = use_extension("@rules_rs//rs:rules_rust.bzl", "rules_rust")
 rules_rust.patch(
     patches = [
         "//tools/patches:rules_rust_drop_redundant_runtime_selectors.patch",
         "//tools/patches:rules_rust_rust_analyzer_setup.patch",
+        "//tools/patches:rules_rust_transitive_build_script_data.patch",
     ],
     strip = 1,
 )
