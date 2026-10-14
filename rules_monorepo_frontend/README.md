@@ -7,6 +7,9 @@ do not own dependency setup: consuming repos still own `package.json`,
 `pnpm-lock.yaml`, `npm_translate_lock`, package-local `@npm` bin wrapper loads,
 Node/pnpm toolchains, browser archives, and OCI base image repositories.
 
+Svelte and Biome checks fail on warnings by default. Svelte callers can set
+`fail_on_warnings = False`; Biome callers can supply custom `args`.
+
 ## Dependency Model
 
 Configure `aspect_rules_js` in the consuming repo and load package-local bin

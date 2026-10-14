@@ -274,6 +274,7 @@ def pnpm_svelte_check_test(
         tsconfig = "tsconfig.json",
         chdir = None,
         tags = None,
+        fail_on_warnings = True,
         **kwargs):
     """Runs svelte-check as a buildable lint target."""
     svelte_check(
@@ -282,7 +283,7 @@ def pnpm_svelte_check_test(
         args = [
             "--tsconfig",
             "./{}".format(tsconfig),
-        ],
+        ] + (["--fail-on-warnings"] if fail_on_warnings else []),
         chdir = _default_chdir(chdir),
         stderr = name + ".stderr",
         stdout = name + ".stdout",
@@ -387,6 +388,7 @@ def pnpm_biome_check(
         srcs = _with_node_modules(srcs, node_modules),
         args = args or [
             "ci",
+            "--error-on-warnings",
             ".",
         ],
         chdir = _default_chdir(chdir),

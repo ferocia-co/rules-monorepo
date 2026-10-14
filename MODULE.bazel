@@ -1,6 +1,6 @@
 module(
     name = "rules_monorepo",
-    version = "2026.10.12.1",
+    version = "2026.10.14.1",
 )
 
 bazel_dep(name = "aspect_bazel_lib", version = "2.22.5")
@@ -146,6 +146,7 @@ example_crates = use_extension(
 )
 example_crates.from_cargo(
     name = "example_crates",
+    generate_lint_config = True,
     cargo_lock = "//examples/cargo_workspace:Cargo.lock",
     cargo_toml = "//examples/cargo_workspace:Cargo.toml",
     platform_triples = [

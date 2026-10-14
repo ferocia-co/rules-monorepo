@@ -11,6 +11,7 @@ def cargo_package(
         aliases_fn = None,
         all_crate_deps_fn = None,
         dep_data = None,
+        lint_config_fn = None,
         package_name = ""):
     """Binds a rules_rs-generated dependency repository to a BUILD package.
 
@@ -21,6 +22,7 @@ def cargo_package(
         aliases_fn = aliases_fn,
         all_crate_deps_fn = all_crate_deps_fn,
         dep_data = dep_data,
+        lint_config_fn = lint_config_fn,
         package_name = package_name,
     )
 
@@ -57,24 +59,33 @@ def cargo_target_kwargs_for_testing(
         package_name,
         include_dev_deps,
         include_dev_proc_macro_deps):
-    """Adds inferred aliases unless a target supplied them explicitly.
+    """Adds inferred aliases and Cargo lints unless supplied explicitly.
 
     This helper is public only so the Starlark unit test can verify explicit
     target attributes remain authoritative.
     """
     out = dict(kwargs)
-    if out.get("aliases") != None:
-        return out
+    if "lint_config" not in out:
+        lint_config_fn = _resolved_fn(None, cargo, "lint_config_fn")
+        resolved_package = _resolved_package_name(package_name, cargo)
+        if lint_config_fn != None:
+            lint_config = lint_config_fn(package_name = resolved_package)
+        else:
+            dep_data = _resolved_fn(None, cargo, "dep_data") or {}
+            lint_config = dep_data.get(resolved_package, {}).get("lint_config")
+        if lint_config != None:
+            out["lint_config"] = lint_config
 
-    inferred = cargo_aliases(
-        aliases_fn = aliases_fn,
-        cargo = cargo,
-        package_name = package_name,
-        normal = True,
-        normal_dev = include_dev_deps or include_dev_proc_macro_deps,
-    )
-    if inferred != None:
-        out["aliases"] = inferred
+    if out.get("aliases") == None:
+        inferred = cargo_aliases(
+            aliases_fn = aliases_fn,
+            cargo = cargo,
+            package_name = package_name,
+            normal = True,
+            normal_dev = include_dev_deps or include_dev_proc_macro_deps,
+        )
+        if inferred != None:
+            out["aliases"] = inferred
     return out
 
 def cargo_aliases(
