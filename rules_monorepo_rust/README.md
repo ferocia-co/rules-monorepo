@@ -34,6 +34,7 @@ crate = use_extension(
 )
 crate.from_cargo(
     name = "crates",
+    generate_lint_config = True,
     cargo_lock = "//:Cargo.lock",
     cargo_toml = "//:Cargo.toml",
     platform_triples = [
@@ -49,6 +50,10 @@ use_repo(crate, "crates")
 Declare a second `from_cargo` repository for a nested workspace with its own
 lockfile. Do not list member manifests: `rules_rs` discovers them through Cargo
 metadata and consumes the lock directly.
+
+With `generate_lint_config = True`, wrappers apply each package's Cargo lints
+through `DEP_DATA`. Adapters without `DEP_DATA` can pass the generated
+`lint_config` function as `cargo_package(lint_config_fn = lint_config)`.
 
 ## Bind the generated dependencies once
 

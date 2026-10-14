@@ -212,12 +212,39 @@ def _legacy_alias_function_still_works_impl(ctx):
 
 legacy_alias_function_still_works_test = unittest.make(_legacy_alias_function_still_works_impl)
 
+def _fake_lint_config(package_name):
+    return "//lints:" + package_name
+
+def _cargo_lints_impl(ctx):
+    env = unittest.begin(ctx)
+    for cargo, kwargs, expected in [
+        (cargo_package(dep_data = {"member": {"lint_config": "//lints:member"}}), {}, "//lints:member"),
+        (cargo_package(lint_config_fn = _fake_lint_config), {}, "//lints:member"),
+        (cargo_package(lint_config_fn = _fake_lint_config), {"lint_config": "//lints:explicit"}, "//lints:explicit"),
+        (cargo_package(lint_config_fn = _fake_lint_config), {"lint_config": None}, None),
+        (cargo_package(), {}, None),
+    ]:
+        actual = cargo_target_kwargs_for_testing(
+            kwargs = dict(kwargs, aliases = {}),
+            aliases_fn = None,
+            cargo = cargo,
+            package_name = "member",
+            include_dev_deps = False,
+            include_dev_proc_macro_deps = False,
+        )
+        asserts.equals(env, expected, actual.get("lint_config"))
+        asserts.equals(env, {}, actual["aliases"])
+    return unittest.end(env)
+
+cargo_lints_test = unittest.make(_cargo_lints_impl)
+
 def cargo_api_tests():
     unittest.suite(
         "cargo_api_tests",
         build_aliases_select_only_build_edges_test,
         build_proc_macro_aliases_fold_into_build_edges_test,
         cargo_generated_api_test,
+        cargo_lints_test,
         explicit_empty_aliases_remain_authoritative_test,
         legacy_alias_function_still_works_test,
         normal_aliases_exclude_dev_reverse_edge_test,

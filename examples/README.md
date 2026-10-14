@@ -33,6 +33,7 @@ This fixture demonstrates the direct `rules_rs` integration: one root
 whose first-party `greeting` path dependency is inferred without a BUILD dep.
 The adapter loads generated `DEP_DATA` once so normal/dev/build aliases use the
 same dependency-kind and platform selectors as the inferred dependency edges.
+It also applies the inherited Cargo lint policy to Bazel builds.
 
 ```bash
 bazel build //examples/cargo_workspace/app
