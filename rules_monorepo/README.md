@@ -40,11 +40,14 @@ monorepo_tools = use_extension(
     "monorepo_tools",
 )
 
-# Optional: configure which k8s tool repos to create.
-# Defaults are kubectl=True, kustomize=True.
+# Optional: configure which k8s tool repos to create and the kustomize version.
+# Defaults are kubectl=True, kustomize=True, kustomize_version="5.8.1".
+# Versions other than the built-in 4.5.3 and 5.8.1 also need kustomize_sha256,
+# keyed by darwin_amd64, darwin_arm64, linux_amd64 and linux_arm64.
 # monorepo_tools.k8s(
 #     kubectl = False,
 #     kustomize = True,
+#     kustomize_version = "5.8.1",
 # )
 
 use_repo(monorepo_tools, "kubectl_bin", "kustomize_bin")

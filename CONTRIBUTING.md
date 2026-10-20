@@ -4,7 +4,7 @@
 
 - Bazel or Bazelisk
 - Python 3 (required at runtime by `rules_monorepo:k8s_apply_helper`)
-- `kubectl` and `kustomize` are fetched via module extension by default (configurable via `monorepo_tools.k8s(...)`), no manual install required
+- `kubectl` and `kustomize` are fetched via module extension by default (including the kustomize version, configurable via `monorepo_tools.k8s(...)`), no manual install required
 - Rust, Cargo, rustfmt, Clippy, and rust-analyzer are fetched by `rules_rs`; do not install host Rust for repository validation
 
 ## Local Validation
